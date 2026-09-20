@@ -1,26 +1,27 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieMethodsServer } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import type { Database } from "@29foods/supabase-client";
 
 // Refreshes the Supabase auth session cookie on every request (required by @supabase/ssr's
 // Next.js pattern) and gates /admin/* to signed-in admins only.
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const supabase = createServerClient(
+  const cookieMethods: CookieMethodsServer = {
+    getAll() {
+      return request.cookies.getAll();
+    },
+    setAll(cookiesToSet) {
+      for (const { name, value } of cookiesToSet) request.cookies.set(name, value);
+      response = NextResponse.next({ request });
+      for (const { name, value, options } of cookiesToSet) response.cookies.set(name, value, options);
+    },
+  };
+
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          for (const { name, value } of cookiesToSet) request.cookies.set(name, value);
-          response = NextResponse.next({ request });
-          for (const { name, value, options } of cookiesToSet) response.cookies.set(name, value, options);
-        },
-      },
-    },
+    { cookies: cookieMethods },
   );
 
   const {

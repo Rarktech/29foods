@@ -17,6 +17,7 @@
   "devDependencies": {
     "@29foods/tsconfig": "workspace:*",
     "@supabase/supabase-js": "^2.47.0",
+    "@types/node": "^22.10.0",
     "typescript": "^5.7.0"
   }
 }

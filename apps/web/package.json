@@ -12,7 +12,7 @@
   "dependencies": {
     "@29foods/core": "workspace:*",
     "@29foods/supabase-client": "workspace:*",
-    "@supabase/ssr": "^0.5.2",
+    "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.47.0",
     "next": "^15.1.0",
     "react": "^19.0.0",

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@29foods/supabase-client";
+import type { Database, Json } from "@29foods/supabase-client";
 
 type Client = SupabaseClient<Database>;
 type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
@@ -39,7 +39,7 @@ export async function createOrderWithReservation(
 ): Promise<OrderRow> {
   const { data, error } = await supabase.rpc("create_order_with_reservation", {
     p_user_id: params.userId,
-    p_items: params.items,
+    p_items: params.items as unknown as Json,
     p_lodge: params.lodge,
     p_room: params.room,
     p_delivery_fee: params.deliveryFee,

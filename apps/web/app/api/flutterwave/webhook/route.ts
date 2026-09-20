@@ -12,9 +12,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
-  const payload = await request.json();
-  const transactionId: string | undefined = payload?.data?.id?.toString();
-  const txRef: string | undefined = payload?.data?.tx_ref;
+  const payload = (await request.json()) as { data?: { id?: number | string; tx_ref?: string } };
+  const transactionId = payload.data?.id?.toString();
+  const txRef = payload.data?.tx_ref;
   if (!transactionId || !txRef) {
     return NextResponse.json({ error: "Malformed payload" }, { status: 400 });
   }

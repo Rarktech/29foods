@@ -48,8 +48,8 @@ export function CheckoutForm(props: {
         }),
       });
 
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? "Something went wrong. Please try again.");
+      const body = (await response.json()) as { error?: string; paymentLink?: string };
+      if (!response.ok || !body.paymentLink) throw new Error(body.error ?? "Something went wrong. Please try again.");
 
       clear();
       window.location.href = body.paymentLink; // Flutterwave hosted checkout

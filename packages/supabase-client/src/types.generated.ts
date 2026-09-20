@@ -11,6 +11,7 @@ export interface Database {
         Row: { id: string; role: "owner" | "admin"; name: string | null; created_at: string };
         Insert: { id: string; role: "owner" | "admin"; name?: string | null; created_at?: string };
         Update: Partial<Database["public"]["Tables"]["admin_profiles"]["Insert"]>;
+        Relationships: [];
       };
       qr_codes: {
         Row: {
@@ -22,6 +23,7 @@ export interface Database {
           stickers_placed?: number; date_placed?: string; created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["qr_codes"]["Insert"]>;
+        Relationships: [];
       };
       users: {
         Row: {
@@ -37,6 +39,15 @@ export interface Database {
           favourites?: Json; loyalty_points?: number; last_order_at?: string | null; created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["users"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "users_acquired_via_qr_fkey";
+            columns: ["acquired_via_qr"];
+            isOneToOne: false;
+            referencedRelation: "qr_codes";
+            referencedColumns: ["qr_code"];
+          },
+        ];
       };
       menu_items: {
         Row: {
@@ -48,11 +59,21 @@ export interface Database {
           is_available?: boolean; image_url?: string | null; created_at?: string; updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["menu_items"]["Insert"]>;
+        Relationships: [];
       };
       inventory: {
         Row: { menu_item_id: string; stock_count: number; low_stock_threshold: number; updated_at: string };
         Insert: { menu_item_id: string; stock_count?: number; low_stock_threshold?: number; updated_at?: string };
         Update: Partial<Database["public"]["Tables"]["inventory"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "inventory_menu_item_id_fkey";
+            columns: ["menu_item_id"];
+            isOneToOne: true;
+            referencedRelation: "menu_items";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       riders: {
         Row: {
@@ -66,6 +87,7 @@ export interface Database {
           assigned_bike?: string | null; last_location?: Json | null; created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["riders"]["Insert"]>;
+        Relationships: [];
       };
       orders: {
         Row: {
@@ -81,6 +103,22 @@ export interface Database {
           user_id: string; items: Json; subtotal: number; total: number; lodge: string; channel: "web" | "telegram";
         };
         Update: Partial<Database["public"]["Tables"]["orders"]["Row"]>;
+        Relationships: [
+          {
+            foreignKeyName: "orders_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "orders_assigned_rider_id_fkey";
+            columns: ["assigned_rider_id"];
+            isOneToOne: false;
+            referencedRelation: "riders";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       order_status_events: {
         Row: {
@@ -94,6 +132,15 @@ export interface Database {
           applied?: boolean; attempts?: number; last_error?: string | null; created_at?: string; applied_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["order_status_events"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "order_status_events_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       feedback: {
         Row: {
@@ -105,6 +152,22 @@ export interface Database {
           comment?: string | null; created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["feedback"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "feedback_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "feedback_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       broadcasts: {
         Row: {
@@ -118,8 +181,18 @@ export interface Database {
           created_by?: string | null; created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["broadcasts"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "broadcasts_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "admin_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
+    Views: Record<string, never>;
     Functions: {
       create_order_with_reservation: {
         Args: {

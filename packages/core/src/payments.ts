@@ -1,5 +1,18 @@
 const FLW_BASE_URL = "https://api.flutterwave.com/v3";
 
+// Minimal shape of what we read from Flutterwave's responses — not a full API type.
+interface FlutterwaveApiResponse {
+  status: string;
+  data: {
+    link?: string;
+    id?: number;
+    status?: string;
+    amount?: number;
+    currency?: string;
+    tx_ref?: string;
+  };
+}
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required env var: ${name}`);
@@ -37,11 +50,11 @@ export async function initiateFlutterwavePayment(params: InitiatePaymentParams):
     }),
   });
 
-  const body = await response.json();
-  if (!response.ok || body.status !== "success") {
+  const body = (await response.json()) as FlutterwaveApiResponse;
+  if (!response.ok || body.status !== "success" || !body.data.link) {
     throw new Error(`Flutterwave payment initiation failed: ${JSON.stringify(body)}`);
   }
-  return { paymentLink: body.data.link as string };
+  return { paymentLink: body.data.link };
 }
 
 /**
@@ -74,15 +87,15 @@ export async function verifyTransaction(transactionId: string): Promise<Verified
   const response = await fetch(`${FLW_BASE_URL}/transactions/${transactionId}/verify`, {
     headers: { Authorization: `Bearer ${requireEnv("FLUTTERWAVE_SECRET_KEY")}` },
   });
-  const body = await response.json();
+  const body = (await response.json()) as FlutterwaveApiResponse;
   if (!response.ok || body.status !== "success") {
     throw new Error(`Flutterwave transaction verification failed: ${JSON.stringify(body)}`);
   }
   const data = body.data;
   return {
     isSuccessful: data.status === "successful",
-    amountNaira: data.amount,
-    currency: data.currency,
-    txRef: data.tx_ref,
+    amountNaira: data.amount ?? 0,
+    currency: data.currency ?? "",
+    txRef: data.tx_ref ?? "",
   };
 }
