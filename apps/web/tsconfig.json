@@ -1,0 +1,18 @@
+{
+  "extends": "@29foods/tsconfig/base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "preserve",
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "composite": false,
+    "noEmit": true,
+    "incremental": true,
+    "allowJs": true
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
