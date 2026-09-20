@@ -26,8 +26,13 @@ supabase/            SQL migrations + seed data
    - Create your own admin account: sign up a Supabase Auth user (email+password, via the dashboard), then insert a matching row into `admin_profiles` with that user's `id` and `role = 'owner'`.
 3. **Flutterwave** — create a (test) account, copy the public/secret keys into `.env.local`, and set a webhook secret hash in the Flutterwave dashboard matching `FLUTTERWAVE_WEBHOOK_HASH`.
 4. **Run the web app**: `pnpm --filter @29foods/web dev` → http://localhost:3000
+5. **Telegram bots** — create 3 bots via [@BotFather](https://t.me/BotFather) (customer, admin, rider), copy each token into the relevant `apps/bot-*/.env` (see `.env.example`). Message the admin bot once from the account that should receive pings, then get that chat's id (e.g. via `https://api.telegram.org/bot<ADMIN_BOT_TOKEN>/getUpdates`) for `ADMIN_TELEGRAM_CHAT_ID`. Run locally with `pnpm --filter @29foods/bot-customer dev` (and `bot-admin`, `bot-rider` likewise) — each is a long-polling process, no webhook/tunnel needed for local dev.
+6. **Riders** — rider rows aren't self-service; insert them directly (Supabase dashboard or a script) with the rider's `telegram_id` once they've messaged the rider bot once so you have that id.
 
-Telegram bot setup (tokens via @BotFather) will be documented once `apps/bot-customer` etc. are built (Phase 5+).
+## Deploying
+
+- **`apps/web` → Vercel.** Set all web env vars in the Vercel project settings. `apps/web/vercel.json` schedules the stock-expiry sweep every 5 minutes — Vercel's Hobby plan only allows daily cron jobs, so on the free tier either upgrade to Pro or accept that abandoned/failed pending orders won't release their reserved stock until the next daily run (correctness is unaffected for successful payments either way).
+- **`apps/bot-customer`, `apps/bot-admin`, `apps/bot-rider` → Railway** (or any host that runs a persistent Node process). Each is `pnpm --filter @29foods/bot-<name> start`, needs its own bot token env var plus the shared Supabase/Flutterwave vars. `bot-admin` also needs `TZ=Africa/Lagos` set so its 10pm daily summary lands at the right local time.
 
 ## Security notes
 
