@@ -16,7 +16,15 @@ interface UpsellItem {
   imageUrl: string | null;
 }
 
-export function ItemDetail({ item, upsell }: { item: MenuItemWithStock; upsell: UpsellItem | null }) {
+export function ItemDetail({
+  item,
+  upsell,
+  isBestseller,
+}: {
+  item: MenuItemWithStock;
+  upsell: UpsellItem | null;
+  isBestseller: boolean;
+}) {
   const router = useRouter();
   const { baskets, addItem, addBasket, renameBasket } = useCart();
 
@@ -56,7 +64,7 @@ export function ItemDetail({ item, upsell }: { item: MenuItemWithStock; upsell: 
   return (
     <div className="scrollbar-none flex flex-grow flex-col overflow-y-auto pb-[130px]">
       {/* Hero */}
-      <div className="relative h-[280px] w-full">
+      <div className="relative h-[280px] w-full shrink-0">
         {staticImage ? (
           <Image src={staticImage} alt={item.name} fill className="object-cover" priority />
         ) : item.imageUrl ? (
@@ -66,24 +74,40 @@ export function ItemDetail({ item, upsell }: { item: MenuItemWithStock; upsell: 
         )}
         <div
           className="pointer-events-none absolute inset-x-0 bottom-0 h-[110px]"
-          style={{ background: "linear-gradient(to bottom, rgba(255,248,240,0) 0%, rgb(var(--color-bg)) 92%)" }}
+          style={{ background: "linear-gradient(to bottom, rgb(var(--color-bg) / 0) 0%, rgb(var(--color-bg)) 92%)" }}
         />
         <button
           aria-label="Back"
           onClick={() => router.back()}
-          className="absolute left-[18px] top-[18px] flex h-[38px] w-[38px] items-center justify-center rounded-full bg-white/90"
+          className="absolute left-[18px] top-[18px] flex h-[38px] w-[38px] items-center justify-center rounded-full bg-[rgba(255,255,255,0.92)] dark:bg-[rgba(10,10,10,0.75)]"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1A1613" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="stroke-[#1A1613] dark:stroke-[#FAF6F0]" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
         </button>
+        {isBestseller && (
+          <span className="absolute right-[18px] top-[18px] rounded-full bg-accent px-[11px] py-[5px] text-[10px] font-extrabold tracking-[0.04em] text-white">
+            BESTSELLER
+          </span>
+        )}
       </div>
 
       <div className="relative -mt-7 px-5 pt-1.5">
         <div className="mb-2 flex items-start justify-between gap-3">
           <h1 className="text-2xl font-extrabold leading-[1.15] text-heading">{item.name}</h1>
+          <div
+            className="mt-[3px] flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1.5"
+            style={{ background: "var(--promise-bg)", border: "var(--promise-border)" }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" className="shrink-0 fill-[var(--rating-icon)]" stroke="none">
+              <path d="M12 2c1 3-2 4-2 7a3 3 0 0 0 6 0c1.5 1.5 2 3.5 2 5a6 6 0 0 1-12 0c0-4 3-5 3-8 0-1.5.5-3 3-4z" />
+            </svg>
+            <span className="text-xs font-bold" style={{ color: "var(--promise-fg)" }}>
+              4.9
+            </span>
+          </div>
         </div>
-        <p className="mb-3.5 text-[13.5px] leading-[1.55] text-body">{CATEGORY_BLURB[item.category] ?? ""}</p>
+        <p className="mb-3.5 text-[13.5px] leading-[1.55] text-[#6B5C4E] dark:text-[#C2BCB1]">{CATEGORY_BLURB[item.category] ?? ""}</p>
         <div className="mb-5 flex items-center gap-4">
           <InfoTag icon={<ClockIcon />} label="25–30 min" />
           <InfoTag icon={<PepperIcon />} label={item.category === "protein" ? "Char-grilled" : "Medium spice"} />
@@ -115,7 +139,7 @@ export function ItemDetail({ item, upsell }: { item: MenuItemWithStock; upsell: 
                     <div className="flex items-center gap-2.5">
                       <span
                         className="h-[18px] w-[18px] shrink-0 rounded-full"
-                        style={{ border: active ? "5px solid rgb(var(--color-accent))" : "2px solid #D8CBB9" }}
+                        style={{ border: active ? "5px solid rgb(var(--color-accent))" : "2px solid var(--muted-border-strong)" }}
                       />
                       <span className={`text-[13.5px] ${active ? "font-bold text-heading" : "font-semibold text-body"}`}>{option.label}</span>
                     </div>
@@ -131,16 +155,24 @@ export function ItemDetail({ item, upsell }: { item: MenuItemWithStock; upsell: 
           <button
             onClick={() => setAddUpsell((v) => !v)}
             className="relative mb-[22px] flex items-center gap-3 overflow-hidden rounded-2xl px-4 py-3.5"
-            style={{ background: addUpsell ? "rgb(var(--color-success))" : "#1A1613" }}
           >
-            <div className="z-[1] flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-white p-1.5">
+            {getMenuImage(upsell.name) && (
+              <Image
+                src={getMenuImage(upsell.name)!}
+                alt=""
+                fill
+                className="object-cover filter brightness-[.35] saturate-[1.1] dark:brightness-[.22]"
+              />
+            )}
+            {addUpsell && <div className="absolute inset-0" style={{ background: "rgb(var(--color-success) / 0.55)" }} />}
+            <div className="z-[1] flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl bg-white p-1.5 dark:bg-[#FAF6F0]">
               {getMenuImage(upsell.name) ? (
                 <Image src={getMenuImage(upsell.name)!} alt={upsell.name} width={34} height={34} className="h-[34px] w-[34px] object-contain" />
               ) : null}
             </div>
             <div className="z-[1] flex-grow text-left">
               <div className="text-[13px] font-bold text-white">{addUpsell ? "Added" : "Add a cold"} {upsell.name}?</div>
-              <div className="text-[11.5px] text-[#F0E4D6]">Perfect with the pepper</div>
+              <div className="text-[11.5px] text-[#F0E4D6] dark:text-[#D8D2C8]">Perfect with the pepper</div>
             </div>
             <span className="z-[1] shrink-0 rounded-full bg-[#FFB25C] px-[15px] py-2 text-xs font-extrabold text-[#1A1613]">
               {addUpsell ? "Added ✓" : `+ ${formatKobo(upsell.price)}`}
@@ -155,7 +187,7 @@ export function ItemDetail({ item, upsell }: { item: MenuItemWithStock; upsell: 
             <button
               aria-label="Decrease quantity"
               onClick={() => setQty((q) => Math.max(1, q - 1))}
-              className="flex h-[30px] w-[30px] items-center justify-center rounded-full border-none bg-[#F3E8DA] text-[17px] font-bold text-heading dark:bg-[#262626]"
+              className="flex h-[30px] w-[30px] items-center justify-center rounded-full border-none bg-[#F3E8DA] text-[17px] font-bold text-heading dark:bg-[#2B2B2B]"
             >
               –
             </button>
@@ -199,7 +231,7 @@ export function ItemDetail({ item, upsell }: { item: MenuItemWithStock; upsell: 
               >
                 <span
                   className="h-[18px] w-[18px] shrink-0 rounded-full"
-                  style={{ border: active ? "5px solid rgb(var(--color-accent))" : "2px solid #D8CBB9" }}
+                  style={{ border: active ? "5px solid rgb(var(--color-accent))" : "2px solid var(--muted-border-strong)" }}
                 />
                 <div className="flex-grow">
                   <div className="mb-0.5 text-xs font-bold text-muted">Basket {i + 1}</div>
@@ -216,9 +248,10 @@ export function ItemDetail({ item, upsell }: { item: MenuItemWithStock; upsell: 
 
           <button
             onClick={() => setBasketId(addBasket(`Basket ${baskets.length + 1}`))}
-            className="flex items-center justify-center gap-2 rounded-[14px] border-[1.5px] border-dashed border-[#D8CBB9] bg-transparent px-3.5 py-3 dark:border-[#3A3A3A]"
+            className="flex items-center justify-center gap-2 rounded-[14px] border-[1.5px] px-3.5 py-3"
+            style={{ borderStyle: "dashed", borderColor: "var(--muted-border-strong)" }}
           >
-            <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#F3E8DA] text-xs font-extrabold text-heading dark:bg-[#262626]">+</span>
+            <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#F3E8DA] text-xs font-extrabold text-heading dark:bg-[#2B2B2B]">+</span>
             <span className="text-[13px] font-bold text-body">Add another basket — order for a friend</span>
           </button>
         </div>

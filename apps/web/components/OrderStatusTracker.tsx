@@ -95,7 +95,7 @@ export function OrderStatusTracker(props: {
 
   return (
     <div className="scrollbar-none flex flex-grow flex-col items-center overflow-y-auto px-[22px] pb-6 pt-9">
-      <div className="relative mb-[18px] flex h-[88px] w-[88px] items-center justify-center">
+      <div className="relative mb-[18px] flex h-[88px] w-[88px] shrink-0 items-center justify-center">
         {status !== "delivered" && (
           <div className="check-ring absolute inset-0 rounded-full" style={{ border: "2px solid rgb(var(--color-success))" }} />
         )}

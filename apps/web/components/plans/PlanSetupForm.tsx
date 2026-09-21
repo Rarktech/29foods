@@ -212,7 +212,7 @@ export function PlanSetupForm({
               </div>
             </div>
           ) : (
-            <p className="mb-2 rounded-[14px] border border-dashed border-[#D8CBB9] px-4 py-3.5 text-xs text-muted dark:border-[#3A3A3A]">
+            <p className="mb-2 rounded-[14px] border border-dashed border-[#D8CBB9] px-4 py-3.5 text-xs text-muted dark:border-[#4A453D]">
               {isLoggedIn ? "Add a delivery location from the Cart screen, then come back here." : "Sign in to set a delivery location."}
             </p>
           )}

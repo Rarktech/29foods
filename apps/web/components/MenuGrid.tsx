@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
 import { formatKobo } from "@/lib/format";
-import { getMenuImage } from "@/lib/menu-images";
+import { getMenuImage, BESTSELLER_NAME } from "@/lib/menu-images";
 
 export interface MenuItemWithStock {
   id: string;
@@ -28,7 +28,7 @@ const CATEGORIES = [
 export function MenuGrid({ items }: { items: MenuItemWithStock[] }) {
   const [category, setCategory] = useState("all");
   const visible = category === "all" ? items : items.filter((i) => i.category === category);
-  const bestsellerId = items[0]?.id;
+  const bestsellerId = items.find((i) => i.name === BESTSELLER_NAME)?.id ?? items[0]?.id;
 
   return (
     <>

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createPublicClient } from "@29foods/supabase-client";
 import { stockCountFromEmbed } from "@29foods/core";
 import { ItemDetail } from "@/components/ItemDetail";
+import { BESTSELLER_NAME } from "@/lib/menu-images";
 
 export const revalidate = 0;
 
@@ -35,6 +36,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
         isAvailable: item.is_available,
       }}
       upsell={upsell ? { id: upsell.id, name: upsell.name, price: upsell.price, imageUrl: upsell.image_url } : null}
+      isBestseller={item.name === BESTSELLER_NAME}
     />
   );
 }

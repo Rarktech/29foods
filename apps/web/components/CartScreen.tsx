@@ -268,7 +268,7 @@ export function CartScreen({
 
           <button
             onClick={() => addBasket(`Basket ${baskets.length + 1}`)}
-            className="mb-5 flex w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-[#D8CBB9] bg-transparent p-3.5 dark:border-[#3A3A3A]"
+            className="mb-5 flex w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-[#D8CBB9] bg-transparent p-3.5 dark:border-[#4A453D]"
           >
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#F3E8DA] text-[13px] font-extrabold text-heading dark:bg-[#262626]">+</span>
             <span className="text-[13.5px] font-bold text-body">Add another basket for a friend</span>
@@ -401,7 +401,7 @@ export function CartScreen({
             ) : (
               <button
                 onClick={() => setAddingLocation(true)}
-                className="flex items-center justify-center gap-2 rounded-[14px] border-[1.5px] border-dashed border-[#D8CBB9] bg-transparent px-4 py-3.5 dark:border-[#3A3A3A]"
+                className="flex items-center justify-center gap-2 rounded-[14px] border-[1.5px] border-dashed border-[#D8CBB9] bg-transparent px-4 py-3.5 dark:border-[#4A453D]"
               >
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#F3E8DA] text-[13px] font-extrabold text-heading dark:bg-[#262626]">+</span>
                 <span className="text-[13px] font-bold text-body">Add a new location</span>

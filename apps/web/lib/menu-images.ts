@@ -22,6 +22,9 @@ const MENU_IMAGE_BY_NAME: Record<string, StaticImageData> = {
   "Fanta 35cl": fantaImg,
 };
 
+/** The one dish the design always badges as "BESTSELLER" — a fixed editorial choice, not derived from order volume. */
+export const BESTSELLER_NAME = "Party Jollof";
+
 export function getMenuImage(name: string): StaticImageData | null {
   // Order/cart snapshots may carry a protein add-on baked into the display name
   // (e.g. "Party Jollof — Fried Fish") — look up by the base dish name.

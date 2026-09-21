@@ -6,6 +6,7 @@ import { QrAttributionCapture } from "@/components/QrAttributionCapture";
 import { BottomNav } from "@/components/shop/BottomNav";
 import { ThemeToggle } from "@/components/shop/ThemeToggle";
 import { UsualCard } from "@/components/UsualCard";
+import { BESTSELLER_NAME } from "@/lib/menu-images";
 import Image from "next/image";
 import Link from "next/link";
 import logo from "@/public/images/brand/logo.png";
@@ -35,6 +36,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   }));
 
   const profile = await getViewerProfile();
+  const bestseller = menu.find((m) => m.name === BESTSELLER_NAME) ?? menu[0];
 
   return (
     <>
@@ -80,7 +82,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       <div className="scrollbar-none flex-grow overflow-y-auto pb-[118px]">
         {/* Hero banner */}
         <Link
-          href={`/item/${menu[0]?.id ?? ""}`}
+          href={`/item/${bestseller?.id ?? ""}`}
           className="relative mx-5 mb-5 flex items-center gap-4 overflow-hidden rounded-hero p-[22px]"
           style={{ background: "linear-gradient(135deg, rgb(var(--color-accent)) 0%, var(--hero-gradient-end)  100%)" }}
         >
