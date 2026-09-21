@@ -12,7 +12,10 @@ import Link from "next/link";
 import logo from "@/public/images/brand/logo.png";
 import partyJollof from "@/public/images/menu/party-jollof.jpg";
 
-export const revalidate = 0; // stock changes live — never cache this page
+// ISR: cached for fast navigation, refreshed at most every 20s in the background.
+// Order placement and admin edits both call revalidatePath("/") for near-immediate
+// correctness on the events that actually change stock — this window is just a safety net.
+export const revalidate = 20;
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ src?: string }> }) {
   const { src } = await searchParams;

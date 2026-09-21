@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
@@ -95,6 +96,8 @@ export async function POST(request: Request) {
     }
     throw err;
   }
+
+  revalidatePath("/"); // stock just changed — don't wait for the ISR window to catch up
 
   const baseUrl = process.env.NEXT_PUBLIC_WEB_BASE_URL ?? new URL(request.url).origin;
   const { paymentLink } = await initiateFlutterwavePayment({

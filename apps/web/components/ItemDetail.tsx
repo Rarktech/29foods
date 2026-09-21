@@ -154,7 +154,7 @@ export function ItemDetail({
         {upsell && (
           <button
             onClick={() => setAddUpsell((v) => !v)}
-            className="relative mb-[22px] flex items-center gap-3 overflow-hidden rounded-2xl px-4 py-3.5"
+            className="relative mb-[22px] flex w-full items-center gap-3 overflow-hidden rounded-2xl px-4 py-3.5"
           >
             {getMenuImage(upsell.name) && (
               <Image

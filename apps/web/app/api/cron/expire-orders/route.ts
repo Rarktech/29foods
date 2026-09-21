@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { releaseOrderStock, expirePendingSubscription } from "@29foods/core";
 
@@ -23,6 +24,7 @@ export async function GET(request: Request) {
   for (const order of expiredOrders ?? []) {
     await releaseOrderStock(service, order.id);
   }
+  if (expiredOrders?.length) revalidatePath("/"); // stock just came back — refresh the cached menu
 
   const { data: expiredSubscriptions, error: subscriptionsError } = await service
     .from("subscriptions")

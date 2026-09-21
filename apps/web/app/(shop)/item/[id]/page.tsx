@@ -4,7 +4,10 @@ import { stockCountFromEmbed } from "@29foods/core";
 import { ItemDetail } from "@/components/ItemDetail";
 import { BESTSELLER_NAME } from "@/lib/menu-images";
 
-export const revalidate = 0;
+// ISR — see app/(shop)/page.tsx for why 20s instead of always-live: order
+// creation is still guarded atomically at the database level regardless of
+// what a slightly-stale page shows, so this only risks a briefly-wrong badge.
+export const revalidate = 20;
 
 export default async function ItemPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

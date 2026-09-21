@@ -2,8 +2,14 @@ import { createServerClient, type CookieMethodsServer } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@29foods/supabase-client";
 
-// Refreshes the Supabase auth session cookie on every request (required by @supabase/ssr's
-// Next.js pattern) and gates /admin/* to signed-in admins only.
+// Refreshes the Supabase auth session cookie and gates /admin/* to signed-in
+// admins only. `getUser()` re-validates the token against Supabase's auth
+// server over the network on every call — worth it for the admin gate, but
+// paying that round-trip on every single customer-facing page load (most of
+// which are anonymous and never touch `user` at all) was adding real latency
+// site-wide. `getSession()` is cookie-local and only hits the network when a
+// refresh is actually due, so non-admin routes get cheap cookie upkeep and
+// the admin gate keeps its server-verified check.
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -24,19 +30,24 @@ export async function middleware(request: NextRequest) {
     { cookies: cookieMethods },
   );
 
+  const isAdminRoute = request.nextUrl.pathname.startsWith("/admin") && !request.nextUrl.pathname.startsWith("/admin/login");
+
+  if (!isAdminRoute) {
+    await supabase.auth.getSession();
+    return response;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (request.nextUrl.pathname.startsWith("/admin") && !request.nextUrl.pathname.startsWith("/admin/login")) {
-    if (!user) {
-      const loginUrl = new URL("/admin/login", request.url);
-      return NextResponse.redirect(loginUrl);
-    }
-    const { data: adminProfile } = await supabase.from("admin_profiles").select("id").eq("id", user.id).maybeSingle();
-    if (!adminProfile) {
-      return NextResponse.redirect(new URL("/", request.url));
-    }
+  if (!user) {
+    const loginUrl = new URL("/admin/login", request.url);
+    return NextResponse.redirect(loginUrl);
+  }
+  const { data: adminProfile } = await supabase.from("admin_profiles").select("id").eq("id", user.id).maybeSingle();
+  if (!adminProfile) {
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return response;
