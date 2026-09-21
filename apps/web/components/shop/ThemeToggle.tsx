@@ -6,6 +6,7 @@ const STORAGE_KEY = "29foods.theme";
 
 function applyTheme(theme: "light" | "dark") {
   document.documentElement.classList.toggle("dark", theme === "dark");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0A0A0A" : "#FFF8F0");
   try {
     window.localStorage.setItem(STORAGE_KEY, theme);
   } catch {
