@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BottomNav } from "@/components/shop/BottomNav";
-import { ThemeToggle } from "@/components/shop/ThemeToggle";
 
 interface SavedLocation {
   id: string;
@@ -202,8 +201,7 @@ export function AccountView({
             <a href="mailto:help@29foods.app" className="block">
               <SettingsRow label="Help & support" icon={<HelpIcon />} bordered />
             </a>
-            <SettingsRow label="Account settings" icon={<GearIcon />} bordered />
-            <ThemeToggle />
+            <SettingsRow label="Account settings" icon={<GearIcon />} last />
           </div>
 
           <button

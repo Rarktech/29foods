@@ -7,6 +7,9 @@ const STORAGE_KEY = "29foods.theme";
 function applyTheme(theme: "light" | "dark") {
   document.documentElement.classList.toggle("dark", theme === "dark");
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#0A0A0A" : "#FFF8F0");
+  document
+    .querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
+    ?.setAttribute("content", theme === "dark" ? "black-translucent" : "default");
   try {
     window.localStorage.setItem(STORAGE_KEY, theme);
   } catch {
@@ -14,7 +17,11 @@ function applyTheme(theme: "light" | "dark") {
   }
 }
 
-/** A real, functional dark-mode switch — not just the automatic system-preference detection in the root layout's init script. */
+/**
+ * Compact icon button for the Home screen's top bar, next to the notification
+ * bell — not auth-gated, so it's reachable by anyone regardless of sign-in
+ * state (unlike a control buried in the Account screen).
+ */
 export function ThemeToggle() {
   const [isDark, setIsDark] = useState(false);
 
@@ -24,26 +31,24 @@ export function ThemeToggle() {
 
   return (
     <button
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       onClick={() => {
         const next = isDark ? "light" : "dark";
         applyTheme(next);
         setIsDark(!isDark);
       }}
-      className="flex w-full items-center gap-3 px-3.5 py-3.5 text-left"
+      className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card"
     >
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--color-body))" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-      </svg>
-      <span className="flex-grow text-[13.5px] font-semibold text-heading">Dark mode</span>
-      <span
-        className="relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors"
-        style={{ background: isDark ? "rgb(var(--color-accent))" : "#D8CBB9" }}
-      >
-        <span
-          className="absolute top-0.5 h-[18px] w-[18px] rounded-full bg-white transition-transform"
-          style={{ transform: isDark ? "translateX(18px)" : "translateX(2px)" }}
-        />
-      </span>
+      {isDark ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--color-heading))" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+        </svg>
+      ) : (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--color-heading))" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+        </svg>
+      )}
     </button>
   );
 }
