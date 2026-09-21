@@ -4,9 +4,10 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { createOrderWithReservation, OutOfStockError, linkPhoneToUser, initiateFlutterwavePayment, type CartItem } from "@29foods/core";
 import { calculateDeliveryFee } from "@/lib/pricing";
+import { PROTEIN_ADDONS } from "@/lib/protein-addons";
 
 interface RequestBody {
-  items: { menuItemId: string; qty: number }[];
+  items: { menuItemId: string; qty: number; basketLabel?: string; addonId?: string }[];
   lodge: string;
   room: string | null;
   phone: string | null;
@@ -59,8 +60,17 @@ export async function POST(request: Request) {
     if (!menuItem || !menuItem.is_available || line.qty <= 0) {
       return NextResponse.json({ error: `${menuItem?.name ?? "An item"} is no longer available.` }, { status: 409 });
     }
-    cartItems.push({ menu_item_id: menuItem.id, name: menuItem.name, qty: line.qty, unit_price: menuItem.price });
-    subtotal += menuItem.price * line.qty;
+    // Protein add-ons are re-derived from the fixed PROTEIN_ADDONS list server-side — never trust a client-submitted price.
+    const addon = line.addonId ? PROTEIN_ADDONS.find((a) => a.id === line.addonId) : undefined;
+    const unitPrice = menuItem.price + (addon?.priceKobo ?? 0);
+    cartItems.push({
+      menu_item_id: menuItem.id,
+      name: addon ? `${menuItem.name} — ${addon.label}` : menuItem.name,
+      qty: line.qty,
+      unit_price: unitPrice,
+      basket_label: line.basketLabel,
+    });
+    subtotal += unitPrice * line.qty;
   }
 
   const deliveryFee = calculateDeliveryFee(subtotal);

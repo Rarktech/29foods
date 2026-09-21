@@ -97,6 +97,7 @@ export interface Database {
           order_status: "placed" | "paid" | "preparing" | "ready" | "out_for_delivery" | "delivered" | "cancelled";
           assigned_rider_id: string | null; source_qr: string | null; channel: "web" | "telegram";
           flutterwave_tx_ref: string | null; flutterwave_tx_id: string | null; expires_at: string | null;
+          subscription_id: string | null;
           created_at: string; paid_at: string | null; delivered_at: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["orders"]["Row"]> & {
@@ -169,6 +170,26 @@ export interface Database {
           },
         ];
       };
+      saved_locations: {
+        Row: {
+          id: string; user_id: string; label: "home" | "work" | "friend" | "other";
+          lodge: string; room: string | null; note: string | null; is_default: boolean; created_at: string;
+        };
+        Insert: {
+          id?: string; user_id: string; label?: "home" | "work" | "friend" | "other";
+          lodge: string; room?: string | null; note?: string | null; is_default?: boolean; created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["saved_locations"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "saved_locations_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       broadcasts: {
         Row: {
           id: string; message: string; target: "all" | "lodge" | "zone" | "inactive_users";
@@ -187,6 +208,72 @@ export interface Database {
             columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "admin_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      subscriptions: {
+        Row: {
+          id: string; user_id: string; duration_id: "1_week" | "2_weeks" | "1_month"; num_weeks: number;
+          lodge: string; room: string | null; start_date: string; end_date: string;
+          status: "pending_payment" | "active" | "completed" | "cancelled";
+          food_subtotal: number; delivery_total: number; total_paid: number;
+          deliveries_total: number; deliveries_used: number;
+          flutterwave_tx_ref: string | null; flutterwave_tx_id: string | null; expires_at: string | null;
+          created_at: string; paid_at: string | null; cancelled_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["subscriptions"]["Row"]> & {
+          user_id: string; duration_id: "1_week" | "2_weeks" | "1_month"; num_weeks: number;
+          lodge: string; start_date: string; end_date: string;
+          food_subtotal: number; delivery_total: number; total_paid: number; deliveries_total: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["subscriptions"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      subscription_slots: {
+        Row: {
+          id: string; subscription_id: string; meal_time: "breakfast" | "lunch" | "dinner";
+          addon_enabled: boolean; addon_label: string | null; addon_price_kobo: number | null;
+        };
+        Insert: {
+          id?: string; subscription_id: string; meal_time: "breakfast" | "lunch" | "dinner";
+          addon_enabled?: boolean; addon_label?: string | null; addon_price_kobo?: number | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["subscription_slots"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "subscription_slots_subscription_id_fkey";
+            columns: ["subscription_id"];
+            isOneToOne: false;
+            referencedRelation: "subscriptions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      subscription_slot_dishes: {
+        Row: {
+          id: string; subscription_slot_id: string; dish_key: string; dish_name: string;
+          frequency_per_week: number; unit_price_kobo: number; scheduled_weekdays: number[];
+        };
+        Insert: {
+          id?: string; subscription_slot_id: string; dish_key: string; dish_name: string;
+          frequency_per_week: number; unit_price_kobo: number; scheduled_weekdays?: number[];
+        };
+        Update: Partial<Database["public"]["Tables"]["subscription_slot_dishes"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "subscription_slot_dishes_subscription_slot_id_fkey";
+            columns: ["subscription_slot_id"];
+            isOneToOne: false;
+            referencedRelation: "subscription_slots";
             referencedColumns: ["id"];
           },
         ];
@@ -211,6 +298,27 @@ export interface Database {
         Returns: Database["public"]["Tables"]["users"]["Row"];
       };
       is_admin: { Args: Record<string, never>; Returns: boolean };
+      create_subscription_with_pending_payment: {
+        Args: {
+          p_user_id: string; p_duration_id: string; p_num_weeks: number; p_lodge: string; p_room: string | null;
+          p_start_date: string; p_end_date: string; p_slots: Json;
+          p_food_subtotal: number; p_delivery_total: number; p_total: number; p_deliveries_total: number;
+          p_tx_ref: string;
+        };
+        Returns: Database["public"]["Tables"]["subscriptions"]["Row"];
+      };
+      mark_subscription_paid: {
+        Args: { p_subscription_id: string; p_tx_id: string };
+        Returns: Database["public"]["Tables"]["subscriptions"]["Row"];
+      };
+      expire_pending_subscription: { Args: { p_subscription_id: string }; Returns: void };
+      create_subscription_delivery_order: {
+        Args: {
+          p_subscription_id: string; p_dish_key: string; p_dish_name: string; p_unit_price: number;
+          p_addon_label: string | null; p_addon_price: number | null;
+        };
+        Returns: Database["public"]["Tables"]["orders"]["Row"];
+      };
     };
   };
 }

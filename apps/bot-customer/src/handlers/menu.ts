@@ -1,5 +1,5 @@
 import { Bot, InlineKeyboard } from "grammy";
-import { formatKobo } from "@29foods/core";
+import { formatKobo, stockCountFromEmbed } from "@29foods/core";
 import { getServiceClient } from "../supabase";
 import type { MyContext } from "../bot-context";
 
@@ -31,7 +31,7 @@ export function registerMenuHandlers(bot: Bot<MyContext>) {
       .eq("category", category)
       .eq("is_available", true);
 
-    const available = (items ?? []).filter((item) => (Array.isArray(item.inventory) ? (item.inventory[0]?.stock_count ?? 0) : 0) > 0);
+    const available = (items ?? []).filter((item) => stockCountFromEmbed(item.inventory) > 0);
 
     if (available.length === 0) {
       await ctx.editMessageText(`${CATEGORY_LABELS[category] ?? category} is all sold out right now 😔`, {
@@ -90,7 +90,7 @@ async function maybeShowUpsell(ctx: MyContext, supabase: ReturnType<typeof getSe
     .eq("category", "drink")
     .eq("is_available", true);
 
-  const drink = (drinks ?? []).find((d) => (Array.isArray(d.inventory) ? (d.inventory[0]?.stock_count ?? 0) : 0) > 0);
+  const drink = (drinks ?? []).find((d) => stockCountFromEmbed(d.inventory) > 0);
   if (!drink) return;
 
   const keyboard = new InlineKeyboard()

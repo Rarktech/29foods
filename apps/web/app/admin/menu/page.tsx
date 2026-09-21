@@ -11,15 +11,20 @@ export default async function AdminMenuPage() {
     .order("category")
     .order("name");
 
-  const rows = (items ?? []).map((item) => ({
-    id: item.id,
-    name: item.name,
-    category: item.category,
-    price: item.price,
-    isAvailable: item.is_available,
-    stockCount: Array.isArray(item.inventory) ? (item.inventory[0]?.stock_count ?? 0) : 0,
-    lowStockThreshold: Array.isArray(item.inventory) ? (item.inventory[0]?.low_stock_threshold ?? 5) : 5,
-  }));
+  const rows = (items ?? []).map((item) => {
+    // menu_item_id is both inventory's PK and its FK to menu_items, so PostgREST embeds it
+    // as a single object (not an array) — handle both shapes defensively.
+    const inv = Array.isArray(item.inventory) ? item.inventory[0] : item.inventory;
+    return {
+      id: item.id,
+      name: item.name,
+      category: item.category,
+      price: item.price,
+      isAvailable: item.is_available,
+      stockCount: inv?.stock_count ?? 0,
+      lowStockThreshold: inv?.low_stock_threshold ?? 5,
+    };
+  });
 
   return (
     <div className="mx-auto max-w-4xl">

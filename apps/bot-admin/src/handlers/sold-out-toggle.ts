@@ -1,4 +1,5 @@
 import { Bot, InlineKeyboard, type Context } from "grammy";
+import { stockCountFromEmbed } from "@29foods/core";
 import { getServiceClient } from "../supabase";
 
 /** Quick mid-service "this just sold out" toggle — zeroes stock_count so it's greyed on both customer surfaces immediately. */
@@ -28,7 +29,7 @@ async function sendSoldOutMenu(ctx: Context, edit = false) {
     .select("id, name, is_available, inventory(stock_count)")
     .eq("is_available", true);
 
-  const inStock = (items ?? []).filter((i) => (Array.isArray(i.inventory) ? (i.inventory[0]?.stock_count ?? 0) : 0) > 0);
+  const inStock = (items ?? []).filter((i) => stockCountFromEmbed(i.inventory) > 0);
 
   if (inStock.length === 0) {
     const text = "Everything is currently sold out.";

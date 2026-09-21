@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { OrderStatusTracker } from "@/components/OrderStatusTracker";
+import { OrderStatusTracker, type OrderItemSnapshot } from "@/components/OrderStatusTracker";
 
 export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,8 +15,15 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   if (!order) notFound(); // RLS also hides orders that aren't this user's
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
-      <OrderStatusTracker orderId={order.id} initialStatus={order.order_status} total={order.total} lodge={order.lodge} room={order.room} />
-    </main>
+    <OrderStatusTracker
+      orderId={order.id}
+      initialStatus={order.order_status}
+      items={order.items as unknown as OrderItemSnapshot[]}
+      total={order.total}
+      lodge={order.lodge}
+      room={order.room}
+      createdAt={order.created_at}
+      assignedRiderId={order.assigned_rider_id}
+    />
   );
 }

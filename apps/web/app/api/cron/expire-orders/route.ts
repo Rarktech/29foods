@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { releaseOrderStock } from "@29foods/core";
+import { releaseOrderStock, expirePendingSubscription } from "@29foods/core";
 
 // Vercel Cron target — releases reserved stock for orders whose payment window expired
-// without a successful webhook (abandoned checkout, failed payment, etc).
+// without a successful webhook (abandoned checkout, failed payment, etc), and cancels
+// subscriptions stuck in the same unpaid state. One route, two near-identical sweeps —
+// not worth a second cron job entry for a nearly-identical concern.
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -11,16 +13,26 @@ export async function GET(request: Request) {
   }
 
   const service = getSupabaseServiceClient();
-  const { data: expired, error } = await service
+
+  const { data: expiredOrders, error: ordersError } = await service
     .from("orders")
     .select("id")
     .eq("payment_status", "pending")
     .lt("expires_at", new Date().toISOString());
-  if (error) throw error;
-
-  for (const order of expired ?? []) {
+  if (ordersError) throw ordersError;
+  for (const order of expiredOrders ?? []) {
     await releaseOrderStock(service, order.id);
   }
 
-  return NextResponse.json({ released: expired?.length ?? 0 });
+  const { data: expiredSubscriptions, error: subscriptionsError } = await service
+    .from("subscriptions")
+    .select("id")
+    .eq("status", "pending_payment")
+    .lt("expires_at", new Date().toISOString());
+  if (subscriptionsError) throw subscriptionsError;
+  for (const subscription of expiredSubscriptions ?? []) {
+    await expirePendingSubscription(service, subscription.id);
+  }
+
+  return NextResponse.json({ ordersReleased: expiredOrders?.length ?? 0, subscriptionsExpired: expiredSubscriptions?.length ?? 0 });
 }

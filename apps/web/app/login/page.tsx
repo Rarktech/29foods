@@ -2,7 +2,9 @@
 
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import logo from "@/public/images/brand/logo.png";
 
 export default function LoginPage() {
   return (
@@ -30,19 +32,22 @@ function LoginContent() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 px-6 text-center">
-      <div>
-        <h1 className="text-2xl font-semibold">Welcome to 29Foods</h1>
-        <p className="mt-1 text-neutral-500">Sign in to order and track your food.</p>
+    <div className="flex min-h-[100dvh] w-full justify-center bg-[#EDE4D8] dark:bg-black md:items-center md:py-8">
+      <div className="flex w-full flex-col items-center justify-center gap-6 bg-bg px-6 py-10 text-center md:h-[min(600px,90vh)] md:w-[430px] md:rounded-[32px] md:border md:border-border md:shadow-2xl">
+        <Image src={logo} alt="29Foods" width={64} height={64} className="h-16 w-16 object-contain" />
+        <div>
+          <h1 className="text-2xl font-extrabold text-heading">Welcome to 29Foods</h1>
+          <p className="mt-1 text-sm text-muted">Sign in to order and track your food.</p>
+        </div>
+        <button
+          onClick={signInWithGoogle}
+          className="flex items-center gap-3 rounded-full border border-border bg-card px-6 py-3 text-sm font-bold text-heading shadow-sm transition hover:shadow-md"
+        >
+          <GoogleIcon />
+          Continue with Google
+        </button>
       </div>
-      <button
-        onClick={signInWithGoogle}
-        className="flex items-center gap-3 rounded-full border border-neutral-200 bg-white px-6 py-3 font-medium shadow-sm transition hover:shadow-md"
-      >
-        <GoogleIcon />
-        Continue with Google
-      </button>
-    </main>
+    </div>
   );
 }
 

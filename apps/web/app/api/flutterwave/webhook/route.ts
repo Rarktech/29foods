@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { verifyWebhookSignature, verifyTransaction, markOrderPaid } from "@29foods/core";
+import { verifyWebhookSignature, verifyTransaction, markOrderPaid, markSubscriptionPaid } from "@29foods/core";
 
 // Flutterwave webhook. Never trust the request body's `status`/`amount` fields directly —
 // verify the signature header, then re-verify the transaction against Flutterwave's API
-// before marking anything paid. mark_order_paid() is idempotent, so a replayed webhook
-// (Flutterwave retries on non-2xx) is safe.
+// before marking anything paid. mark_order_paid()/mark_subscription_paid() are idempotent,
+// so a replayed webhook (Flutterwave retries on non-2xx) is safe.
 export async function POST(request: Request) {
   const signature = request.headers.get("verif-hash");
   if (!verifyWebhookSignature(signature)) {
@@ -25,16 +25,29 @@ export async function POST(request: Request) {
   }
 
   const service = getSupabaseServiceClient();
-  const { data: order, error } = await service.from("orders").select("id, total").eq("flutterwave_tx_ref", txRef).single();
-  if (error || !order) {
-    return NextResponse.json({ error: "Order not found for tx_ref" }, { status: 404 });
+  const paidAmountKobo = Math.round(verified.amountNaira * 100);
+
+  const { data: order } = await service.from("orders").select("id, total").eq("flutterwave_tx_ref", txRef).maybeSingle();
+  if (order) {
+    if (paidAmountKobo !== order.total) {
+      return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
+    }
+    await markOrderPaid(service, order.id, transactionId);
+    return NextResponse.json({ received: true });
   }
 
-  // Defense in depth: the paid amount must match what we charged for, in naira (order.total is stored in kobo).
-  if (Math.round(verified.amountNaira * 100) !== order.total) {
-    return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
+  const { data: subscription } = await service
+    .from("subscriptions")
+    .select("id, total_paid")
+    .eq("flutterwave_tx_ref", txRef)
+    .maybeSingle();
+  if (subscription) {
+    if (paidAmountKobo !== subscription.total_paid) {
+      return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
+    }
+    await markSubscriptionPaid(service, subscription.id, transactionId);
+    return NextResponse.json({ received: true });
   }
 
-  await markOrderPaid(service, order.id, transactionId);
-  return NextResponse.json({ received: true });
+  return NextResponse.json({ error: "No order or subscription found for tx_ref" }, { status: 404 });
 }

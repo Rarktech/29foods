@@ -10,6 +10,8 @@ export interface CartItem {
   qty: number;
   unit_price: number; // kobo
   addons?: string[];
+  /** Which named basket this line belongs to, for multi-person orders sharing one drop-off. */
+  basket_label?: string;
 }
 
 export class OutOfStockError extends Error {
