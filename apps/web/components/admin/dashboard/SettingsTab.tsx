@@ -1,66 +1,42 @@
-"use client";
+import { BUSINESS_HOURS, DELIVERY_ZONES, STAFF } from "./sampleData";
 
-import { useState, useTransition } from "react";
-import { updateOwnAdminName } from "@/app/admin/(dashboard)/dashboard/actions";
-import type { AdminRow } from "./types";
-
-export function SettingsTab({
-  admins,
-  self,
-}: {
-  admins: AdminRow[];
-  self: { id: string; name: string | null; email: string | null; role: string } | null;
-}) {
-  const [name, setName] = useState(self?.name ?? "");
-  const [saved, setSaved] = useState(false);
-  const [pending, startTransition] = useTransition();
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    startTransition(async () => {
-      await updateOwnAdminName(name.trim());
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
-    });
-  }
-
+export function SettingsTab() {
   return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-panel border border-border bg-card p-5">
-        <p className="mb-4 text-[13px] font-bold text-heading">Your profile</p>
-        <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
-          <div>
-            <label className="mb-1 block text-[11px] font-semibold text-muted">Display name</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="rounded-lg border border-border bg-bg px-3 py-2 text-body"
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-[11px] font-semibold text-muted">Email</label>
-            <p className="rounded-lg border border-border bg-bg px-3 py-2 text-muted">{self?.email ?? "—"}</p>
-          </div>
-          <div>
-            <label className="mb-1 block text-[11px] font-semibold text-muted">Role</label>
-            <p className="rounded-lg border border-border bg-bg px-3 py-2 capitalize text-muted">{self?.role ?? "—"}</p>
-          </div>
-          <button type="submit" disabled={pending} className="rounded-full bg-accent px-5 py-2 text-[13px] font-bold text-white disabled:opacity-50">
-            Save
-          </button>
-          {saved && <span className="text-[12px] font-semibold text-success">Saved.</span>}
-        </form>
+    <div className="grid gap-3.5 lg:grid-cols-2">
+      <div className="rounded-2xl border border-border bg-card p-5">
+        <h3 className="mb-3.5 text-[14px] font-bold text-heading">Business hours</h3>
+        <div className="flex flex-col gap-2">
+          {BUSINESS_HOURS.map((d) => (
+            <div key={d.day} className="flex justify-between text-[12.5px]">
+              <span className="font-semibold text-body">{d.day}</span>
+              <span className="font-bold text-heading">{d.hours}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="rounded-panel border border-border bg-card p-5">
-        <p className="mb-4 text-[13px] font-bold text-heading">Admin team</p>
-        <div className="flex flex-col divide-y divide-border">
-          {admins.map((a) => (
-            <div key={a.id} className="flex items-center justify-between py-2.5">
-              <span className="text-[13px] font-semibold text-heading">{a.name ?? "Unnamed"}</span>
-              <span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold capitalize text-muted">{a.role}</span>
+      <div className="rounded-2xl border border-border bg-card p-5">
+        <h3 className="mb-3.5 text-[14px] font-bold text-heading">Delivery zones</h3>
+        <div className="flex flex-col gap-2.5">
+          {DELIVERY_ZONES.map((z) => (
+            <div key={z.name} className="flex items-center justify-between">
+              <span className="text-[12.5px] font-semibold text-heading">{z.name}</span>
+              <span className="text-[11.5px] font-bold text-muted">{z.fee}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-card p-5 lg:col-span-2">
+        <h3 className="mb-3.5 text-[14px] font-bold text-heading">Staff &amp; roles</h3>
+        <div className="flex flex-col gap-2.5">
+          {STAFF.map((s) => (
+            <div key={s.name} className="flex items-center justify-between border-b border-admin-row-border pb-2.5">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-border text-[11.5px] font-extrabold text-body">{s.initial}</span>
+                <span className="text-[12.5px] font-bold text-heading">{s.name}</span>
+              </div>
+              <span className="rounded-full bg-border px-2.5 py-1 text-[11px] font-bold text-body">{s.role}</span>
             </div>
           ))}
         </div>

@@ -30,6 +30,17 @@
   --promise-fg: #6b4a1e;
   --muted-border-strong: #d8cbb9; /* unselected radio rings, dashed "add another" borders */
   --rating-icon: #c4551e;
+
+  /* admin desktop shell — exact values from AdminDashboardWeb.dc.html (light) */
+  --admin-sidebar-bg: #ffffff;
+  --admin-nav-active-text: #c41e1e;
+  --admin-row-hover: #fffbf5;
+  --admin-row-border: #f5ede1;
+  --admin-danger-bg: #fff3f0;
+  --admin-danger-border: #f3c9c0;
+  --admin-input-bg: #ffffff;
+  --admin-modal-dashed: #d8cbb9;
+  --admin-chart-bar-inactive: #f0d9ce;
 }
 
 .dark {
@@ -59,6 +70,18 @@
   --promise-fg: #f0c989;
   --muted-border-strong: #4a453d;
   --rating-icon: #f0c989;
+
+  /* admin desktop shell — exact values from AdminDashboardWebDark.dc.html /
+     AdminCashierWebDark.dc.html / AdminKitchenWebDark.dc.html */
+  --admin-sidebar-bg: #121212;
+  --admin-nav-active-text: #ff6b5a;
+  --admin-row-hover: #1c1c1c;
+  --admin-row-border: #232323;
+  --admin-danger-bg: #241211;
+  --admin-danger-border: #4a1f1b;
+  --admin-input-bg: #0f0f0f;
+  --admin-modal-dashed: #3a332c;
+  --admin-chart-bar-inactive: #3a2420;
 }
 
 body {
