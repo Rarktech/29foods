@@ -11,14 +11,15 @@ export default async function CartPage() {
   let savedLocations: { id: string; label: string; lodge: string; room: string | null; note: string | null }[] = [];
 
   if (user) {
-    const { data: profileRow } = await supabase.from("users").select("id, phone").eq("auth_uid", user.id).maybeSingle();
+    const [{ data: profileRow }, { data: locations }] = await Promise.all([
+      supabase.from("users").select("id, phone").eq("auth_uid", user.id).maybeSingle(),
+      supabase
+        .from("saved_locations")
+        .select("id, label, lodge, room, note")
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: true }),
+    ]);
     profile = profileRow;
-
-    const { data: locations } = await supabase
-      .from("saved_locations")
-      .select("id, label, lodge, room, note")
-      .order("is_default", { ascending: false })
-      .order("created_at", { ascending: true });
     savedLocations = locations ?? [];
   }
 

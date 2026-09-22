@@ -5,6 +5,7 @@ import { MenuGrid, type MenuItemWithStock } from "@/components/MenuGrid";
 import { QrAttributionCapture } from "@/components/QrAttributionCapture";
 import { BottomNav } from "@/components/shop/BottomNav";
 import { ThemeToggle } from "@/components/shop/ThemeToggle";
+import { InstallPrompt } from "@/components/shop/InstallPrompt";
 import { UsualCard } from "@/components/UsualCard";
 import { BESTSELLER_NAME } from "@/lib/menu-images";
 import Image from "next/image";
@@ -21,10 +22,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const { src } = await searchParams;
   const supabase = createPublicClient();
 
-  const { data: items, error } = await supabase
-    .from("menu_items")
-    .select("id, name, category, price, is_available, image_url, inventory(stock_count)")
-    .order("category");
+  const [{ data: items, error }, profile] = await Promise.all([
+    supabase
+      .from("menu_items")
+      .select("id, name, category, price, is_available, image_url, inventory(stock_count)")
+      .order("category"),
+    getViewerProfile(),
+  ]);
 
   if (error) throw error;
 
@@ -38,7 +42,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     isAvailable: item.is_available,
   }));
 
-  const profile = await getViewerProfile();
   const bestseller = menu.find((m) => m.name === BESTSELLER_NAME) ?? menu[0];
 
   return (
@@ -80,6 +83,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <span className="text-sm text-muted">Craving jollof, chicken, drinks?</span>
         </div>
       </div>
+
+      <InstallPrompt />
 
       {/* Scrollable content */}
       <div className="scrollbar-none flex-grow overflow-y-auto pb-[118px]">

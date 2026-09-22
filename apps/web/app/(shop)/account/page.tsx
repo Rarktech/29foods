@@ -11,20 +11,20 @@ export default async function AccountPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/account");
 
-  const { data: profile } = await supabase.from("users").select("name, phone, lodge").eq("auth_uid", user.id).maybeSingle();
-
-  const { data: locations } = await supabase
-    .from("saved_locations")
-    .select("id, label, lodge, room")
-    .order("is_default", { ascending: false })
-    .order("created_at", { ascending: true });
-
-  const { data: subscription } = await supabase
-    .from("subscriptions")
-    .select("id, duration_id, start_date, end_date, deliveries_total, deliveries_used")
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .maybeSingle();
+  const [{ data: profile }, { data: locations }, { data: subscription }] = await Promise.all([
+    supabase.from("users").select("name, phone, lodge").eq("auth_uid", user.id).maybeSingle(),
+    supabase
+      .from("saved_locations")
+      .select("id, label, lodge, room")
+      .order("is_default", { ascending: false })
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("subscriptions")
+      .select("id, duration_id, start_date, end_date, deliveries_total, deliveries_used")
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .maybeSingle(),
+  ]);
 
   const duration = subscription ? PLAN_DURATIONS.find((d) => d.id === subscription.duration_id) : null;
 

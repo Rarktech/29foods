@@ -12,11 +12,17 @@ export default async function OrdersPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/orders");
 
-  const { data: orders } = await supabase
-    .from("orders")
-    .select("id, items, total, order_status, created_at, subscription_id")
-    .order("created_at", { ascending: false })
-    .limit(30);
+  const [{ data: orders }, { data: subscriptions }] = await Promise.all([
+    supabase
+      .from("orders")
+      .select("id, items, total, order_status, created_at, subscription_id")
+      .order("created_at", { ascending: false })
+      .limit(30),
+    supabase
+      .from("subscriptions")
+      .select("id, duration_id, status, start_date, end_date, deliveries_total, deliveries_used, total_paid")
+      .order("created_at", { ascending: false }),
+  ]);
 
   const active: OrderSummary[] = [];
   const history: OrderSummary[] = [];
@@ -32,11 +38,6 @@ export default async function OrdersPage() {
     if (ACTIVE_STATUSES.includes(order.order_status)) active.push(summary);
     else if (order.order_status === "delivered") history.push(summary);
   }
-
-  const { data: subscriptions } = await supabase
-    .from("subscriptions")
-    .select("id, duration_id, status, start_date, end_date, deliveries_total, deliveries_used, total_paid")
-    .order("created_at", { ascending: false });
 
   const subscriptionSummaries: SubscriptionSummary[] = (subscriptions ?? []).map((s) => ({
     id: s.id,
