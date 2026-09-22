@@ -6,9 +6,12 @@ import { updateProfileAction } from "./actions";
 
 export default async function AccountPage() {
   const supabase = await getSupabaseServerClient();
+  // getSession() trusts the cookie middleware already validated — fast path for a
+  // read-only page; the actual profile update goes through getUser() in ./actions.ts.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   if (!user) redirect("/login?next=/account");
 
   const [{ data: profile }, { data: locations }, { data: subscription }] = await Promise.all([

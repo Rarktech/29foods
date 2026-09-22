@@ -12,9 +12,12 @@ export default async function PlanConfirmedPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const supabase = await getSupabaseServerClient();
 
+  // getSession() trusts the cookie middleware already validated — this page only
+  // reads; RLS still hides subscriptions that aren't this user's regardless.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   if (!user) redirect(`/login?next=/plans/confirmed/${id}`);
 
   const { data: subscription } = await supabase.from("subscriptions").select("*").eq("id", id).maybeSingle();

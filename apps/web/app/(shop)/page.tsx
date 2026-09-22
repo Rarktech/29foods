@@ -153,9 +153,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
 async function getViewerProfile(): Promise<{ id: string; lodge: string; room: string | null } | null> {
   const supabase = await getSupabaseServerClient();
+  // getSession() reads the already-validated cookie locally (middleware just refreshed
+  // it) instead of re-verifying with the Auth server — fine for display personalization;
+  // anything that writes data re-verifies with getUser() at the point of mutation.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   if (!user) return null;
 
   const { data } = await supabase.from("users").select("id, lodge, room").eq("auth_uid", user.id).maybeSingle();

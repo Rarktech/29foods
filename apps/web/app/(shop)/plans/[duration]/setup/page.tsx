@@ -9,9 +9,12 @@ export default async function PlanSetupPage({ params }: { params: Promise<{ dura
   if (!duration) notFound();
 
   const supabase = await getSupabaseServerClient();
+  // getSession() trusts the cookie middleware already validated — subscription
+  // creation itself re-verifies with getUser() in the API route.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   let defaultLocation: { lodge: string; room: string | null; label: string } | null = null;
   if (user) {

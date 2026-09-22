@@ -7,9 +7,11 @@ const ACTIVE_STATUSES = ["placed", "paid", "preparing", "ready", "out_for_delive
 
 export default async function OrdersPage() {
   const supabase = await getSupabaseServerClient();
+  // getSession() trusts the cookie middleware already validated — this page only reads.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   if (!user) redirect("/login?next=/orders");
 
   const [{ data: orders }, { data: subscriptions }] = await Promise.all([

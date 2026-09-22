@@ -3,9 +3,12 @@ import { CartScreen } from "@/components/CartScreen";
 
 export default async function CartPage() {
   const supabase = await getSupabaseServerClient();
+  // getSession() trusts the cookie middleware already validated — checkout itself
+  // re-verifies with getUser() before placing an order.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   let profile: { id: string; phone: string | null } | null = null;
   let savedLocations: { id: string; label: string; lodge: string; room: string | null; note: string | null }[] = [];

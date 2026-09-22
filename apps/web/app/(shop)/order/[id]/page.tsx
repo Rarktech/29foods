@@ -6,9 +6,12 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const supabase = await getSupabaseServerClient();
 
+  // getSession() trusts the cookie middleware already validated — this page only
+  // reads; RLS still hides orders that aren't this user's regardless.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   if (!user) redirect(`/login?next=/order/${id}`);
 
   const { data: order } = await supabase.from("orders").select("*").eq("id", id).maybeSingle();
