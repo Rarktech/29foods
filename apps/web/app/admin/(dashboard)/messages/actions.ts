@@ -5,7 +5,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { sendTelegramBroadcast } from "@29foods/core";
 
-type Target = "all" | "lodge" | "zone" | "inactive_users";
+type Target = "all" | "lodge" | "zone" | "inactive_users" | "meal_plan_subscribers";
 
 async function assertAdmin() {
   const session = await getSupabaseServerClient();
@@ -34,6 +34,10 @@ export async function sendBroadcast(input: { message: string; target: Target; ta
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 14);
     query = query.or(`last_order_at.is.null,last_order_at.lt.${cutoff.toISOString()}`);
+  } else if (input.target === "meal_plan_subscribers") {
+    const { data: activeSubs } = await service.from("subscriptions").select("user_id").eq("status", "active");
+    const userIds = [...new Set((activeSubs ?? []).map((s) => s.user_id))];
+    query = query.in("id", userIds.length > 0 ? userIds : ["__none__"]);
   }
 
   const { data: recipients, error } = await query;
@@ -55,6 +59,6 @@ export async function sendBroadcast(input: { message: string; target: Target; ta
     created_by: adminId,
   });
 
-  revalidatePath("/admin/broadcasts");
+  revalidatePath("/admin/messages");
   return { sentCount };
 }

@@ -8,6 +8,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   protein: "🍗 Protein",
   drink: "🥤 Drinks",
   snack: "🥟 Snacks",
+  swallow: "🍲 Swallow",
 };
 const CATEGORIES = Object.keys(CATEGORY_LABELS);
 

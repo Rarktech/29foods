@@ -51,11 +51,11 @@ export interface Database {
       };
       menu_items: {
         Row: {
-          id: string; name: string; category: "rice" | "protein" | "drink" | "snack"; price: number;
+          id: string; name: string; category: "rice" | "protein" | "drink" | "snack" | "swallow"; price: number;
           is_available: boolean; image_url: string | null; created_at: string; updated_at: string;
         };
         Insert: {
-          id?: string; name: string; category: "rice" | "protein" | "drink" | "snack"; price: number;
+          id?: string; name: string; category: "rice" | "protein" | "drink" | "snack" | "swallow"; price: number;
           is_available?: boolean; image_url?: string | null; created_at?: string; updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["menu_items"]["Insert"]>;
@@ -147,10 +147,14 @@ export interface Database {
         Row: {
           id: string; order_id: string; user_id: string; reaction: "fire" | "neutral" | "down";
           comment: string | null; created_at: string;
+          reason: string | null; status: "new" | "under_review" | "resolved"; resolution: string | null;
+          resolved_at: string | null; resolved_by: string | null;
         };
         Insert: {
           id?: string; order_id: string; user_id: string; reaction: "fire" | "neutral" | "down";
           comment?: string | null; created_at?: string;
+          reason?: string | null; status?: "new" | "under_review" | "resolved"; resolution?: string | null;
+          resolved_at?: string | null; resolved_by?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["feedback"]["Insert"]>;
         Relationships: [
@@ -166,6 +170,13 @@ export interface Database {
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "feedback_resolved_by_fkey";
+            columns: ["resolved_by"];
+            isOneToOne: false;
+            referencedRelation: "admin_profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -192,12 +203,12 @@ export interface Database {
       };
       broadcasts: {
         Row: {
-          id: string; message: string; target: "all" | "lodge" | "zone" | "inactive_users";
+          id: string; message: string; target: "all" | "lodge" | "zone" | "inactive_users" | "meal_plan_subscribers";
           target_value: string | null; sent_at: string | null; sent_count: number;
           created_by: string | null; created_at: string;
         };
         Insert: {
-          id?: string; message: string; target: "all" | "lodge" | "zone" | "inactive_users";
+          id?: string; message: string; target: "all" | "lodge" | "zone" | "inactive_users" | "meal_plan_subscribers";
           target_value?: string | null; sent_at?: string | null; sent_count?: number;
           created_by?: string | null; created_at?: string;
         };

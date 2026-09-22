@@ -20,7 +20,7 @@ export async function updateMenuItem(id: string, update: { price?: number; is_av
   const service = getSupabaseServiceClient();
   const { error } = await service.from("menu_items").update(update).eq("id", id);
   if (error) throw error;
-  revalidatePath("/admin/menu");
+  revalidatePath("/admin/dashboard");
   revalidatePath("/");
 }
 
@@ -29,13 +29,13 @@ export async function updateStock(menuItemId: string, stockCount: number) {
   const service = getSupabaseServiceClient();
   const { error } = await service.from("inventory").update({ stock_count: Math.max(0, stockCount) }).eq("menu_item_id", menuItemId);
   if (error) throw error;
-  revalidatePath("/admin/menu");
+  revalidatePath("/admin/dashboard");
   revalidatePath("/");
 }
 
 export async function createMenuItem(input: {
   name: string;
-  category: "rice" | "protein" | "drink" | "snack";
+  category: "rice" | "protein" | "drink" | "snack" | "swallow";
   price: number;
   stockCount: number;
 }) {
@@ -50,6 +50,6 @@ export async function createMenuItem(input: {
   if (error) throw error;
 
   await service.from("inventory").insert({ menu_item_id: item.id, stock_count: input.stockCount });
-  revalidatePath("/admin/menu");
+  revalidatePath("/admin/dashboard");
   revalidatePath("/");
 }

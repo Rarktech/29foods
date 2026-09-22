@@ -4,6 +4,9 @@ import { useState, useTransition } from "react";
 import { formatKobo } from "@/lib/format";
 import { updateMenuItem, updateStock, createMenuItem } from "@/app/admin/menu/actions";
 
+const CATEGORIES = ["rice", "protein", "drink", "snack", "swallow"] as const;
+type Category = (typeof CATEGORIES)[number];
+
 interface MenuRow {
   id: string;
   name: string;
@@ -16,23 +19,26 @@ interface MenuRow {
 
 export function MenuAdminTable({ items }: { items: MenuRow[] }) {
   return (
-    <div className="flex flex-col gap-8">
-      <table className="w-full overflow-hidden rounded-2xl border border-neutral-200 bg-white text-sm">
-        <thead className="bg-neutral-50 text-left text-neutral-500">
-          <tr>
-            <th className="px-4 py-3">Item</th>
-            <th className="px-4 py-3">Category</th>
-            <th className="px-4 py-3">Price (₦)</th>
-            <th className="px-4 py-3">Stock</th>
-            <th className="px-4 py-3">Available</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-neutral-100">
-          {items.map((item) => (
-            <MenuRow key={item.id} item={item} />
-          ))}
-        </tbody>
-      </table>
+    <div className="flex flex-col gap-6">
+      <div className="overflow-hidden rounded-panel border border-border bg-card">
+        <table className="w-full text-left text-[13px]">
+          <thead className="bg-bg text-muted">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Item</th>
+              <th className="px-4 py-3 font-semibold">Category</th>
+              <th className="px-4 py-3 font-semibold">Price (₦)</th>
+              <th className="px-4 py-3 font-semibold">Stock</th>
+              <th className="px-4 py-3 font-semibold">Available</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {items.map((item) => (
+              <MenuRow key={item.id} item={item} />
+            ))}
+          </tbody>
+        </table>
+        {items.length === 0 && <p className="p-6 text-center text-muted">No menu items yet.</p>}
+      </div>
 
       <AddItemForm />
     </div>
@@ -49,8 +55,8 @@ function MenuRow({ item }: { item: MenuRow }) {
 
   return (
     <tr className={pending ? "opacity-60" : ""}>
-      <td className="px-4 py-3 font-medium">{item.name}</td>
-      <td className="px-4 py-3 text-neutral-500">{item.category}</td>
+      <td className="px-4 py-3 font-semibold text-heading">{item.name}</td>
+      <td className="px-4 py-3 capitalize text-muted">{item.category}</td>
       <td className="px-4 py-3">
         <input
           type="number"
@@ -62,7 +68,7 @@ function MenuRow({ item }: { item: MenuRow }) {
             if (Number.isNaN(naira) || naira < 0) return;
             startTransition(() => updateMenuItem(item.id, { price: Math.round(naira * 100) }));
           }}
-          className="w-24 rounded-lg border border-neutral-200 px-2 py-1"
+          className="w-24 rounded-lg border border-border bg-bg px-2 py-1 text-body"
         />
       </td>
       <td className="px-4 py-3">
@@ -76,9 +82,9 @@ function MenuRow({ item }: { item: MenuRow }) {
             if (Number.isNaN(count)) return;
             startTransition(() => updateStock(item.id, count));
           }}
-          className={`w-20 rounded-lg border px-2 py-1 ${lowStock ? "border-amber-400 bg-amber-50" : "border-neutral-200"}`}
+          className={`w-20 rounded-lg border bg-bg px-2 py-1 text-body ${lowStock ? "border-warning" : "border-border"}`}
         />
-        {lowStock && <span className="ml-2 text-xs text-amber-600">low</span>}
+        {lowStock && <span className="ml-2 text-[11px] font-semibold text-warning">low</span>}
       </td>
       <td className="px-4 py-3">
         <input
@@ -96,7 +102,7 @@ function MenuRow({ item }: { item: MenuRow }) {
 
 function AddItemForm() {
   const [name, setName] = useState("");
-  const [category, setCategory] = useState<"rice" | "protein" | "drink" | "snack">("rice");
+  const [category, setCategory] = useState<Category>("rice");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("20");
   const [pending, startTransition] = useTransition();
@@ -116,29 +122,30 @@ function AddItemForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-2xl border border-dashed border-neutral-300 p-4">
+    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-panel border border-dashed border-muted-border-strong p-4">
       <div>
-        <label className="mb-1 block text-xs text-neutral-500">Name</label>
-        <input value={name} onChange={(e) => setName(e.target.value)} className="rounded-lg border border-neutral-200 px-3 py-2" required />
+        <label className="mb-1 block text-[11px] font-semibold text-muted">Name</label>
+        <input value={name} onChange={(e) => setName(e.target.value)} className="rounded-lg border border-border bg-bg px-3 py-2 text-body" required />
       </div>
       <div>
-        <label className="mb-1 block text-xs text-neutral-500">Category</label>
-        <select value={category} onChange={(e) => setCategory(e.target.value as typeof category)} className="rounded-lg border border-neutral-200 px-3 py-2">
-          <option value="rice">Rice</option>
-          <option value="protein">Protein</option>
-          <option value="drink">Drink</option>
-          <option value="snack">Snack</option>
+        <label className="mb-1 block text-[11px] font-semibold text-muted">Category</label>
+        <select value={category} onChange={(e) => setCategory(e.target.value as Category)} className="rounded-lg border border-border bg-bg px-3 py-2 text-body capitalize">
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-xs text-neutral-500">Price (₦)</label>
-        <input type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} className="w-24 rounded-lg border border-neutral-200 px-3 py-2" required />
+        <label className="mb-1 block text-[11px] font-semibold text-muted">Price (₦)</label>
+        <input type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} className="w-24 rounded-lg border border-border bg-bg px-3 py-2 text-body" required />
       </div>
       <div>
-        <label className="mb-1 block text-xs text-neutral-500">Initial stock</label>
-        <input type="number" min={0} value={stock} onChange={(e) => setStock(e.target.value)} className="w-20 rounded-lg border border-neutral-200 px-3 py-2" />
+        <label className="mb-1 block text-[11px] font-semibold text-muted">Initial stock</label>
+        <input type="number" min={0} value={stock} onChange={(e) => setStock(e.target.value)} className="w-20 rounded-lg border border-border bg-bg px-3 py-2 text-body" />
       </div>
-      <button type="submit" disabled={pending} className="rounded-full bg-neutral-900 px-5 py-2 font-medium text-white disabled:opacity-50">
+      <button type="submit" disabled={pending} className="rounded-full bg-accent px-5 py-2 text-[13px] font-bold text-white disabled:opacity-50">
         Add item
       </button>
     </form>

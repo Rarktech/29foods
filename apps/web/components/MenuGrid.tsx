@@ -23,6 +23,7 @@ const CATEGORIES = [
   { value: "protein", label: "Protein" },
   { value: "drink", label: "Drinks" },
   { value: "snack", label: "Snacks" },
+  { value: "swallow", label: "Swallow" },
 ];
 
 export function MenuGrid({ items }: { items: MenuItemWithStock[] }) {
