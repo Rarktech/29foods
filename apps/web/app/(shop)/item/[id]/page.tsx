@@ -13,19 +13,20 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const supabase = createPublicClient();
 
-  const { data: item } = await supabase
-    .from("menu_items")
-    .select("id, name, category, price, is_available, image_url, inventory(stock_count)")
-    .eq("id", id)
-    .maybeSingle();
+  const [{ data: item }, { data: upsell }] = await Promise.all([
+    supabase
+      .from("menu_items")
+      .select("id, name, category, price, is_available, image_url, inventory(stock_count)")
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from("menu_items")
+      .select("id, name, price, image_url")
+      .eq("name", "Fanta 35cl")
+      .neq("id", id)
+      .maybeSingle(),
+  ]);
   if (!item) notFound();
-
-  const { data: upsell } = await supabase
-    .from("menu_items")
-    .select("id, name, price, image_url")
-    .eq("name", "Fanta 35cl")
-    .neq("id", id)
-    .maybeSingle();
 
   return (
     <ItemDetail

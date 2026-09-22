@@ -137,7 +137,7 @@ function RangeView({ rangeDays, setRangeDays }: { rangeDays: number; setRangeDay
   ];
   const unitHighlight = `${fN(cur.profitPerOrder)} profit per order · food at ${pct1(cur.foodCostPct)}`;
 
-  const prev2 = aggregateRange(2 * rangeDays, rangeDays);
+  const prev2 = useMemo(() => aggregateRange(2 * rangeDays, rangeDays), [rangeDays]);
   const retention = Math.max(0, Math.min(100, (cur.distinctReturning / Math.max(1, prev.distinctCustomers)) * 100));
   const prevRetention = Math.max(0, Math.min(100, (prev.distinctReturning / Math.max(1, prev2.distinctCustomers)) * 100));
   const churn = 100 - retention;
