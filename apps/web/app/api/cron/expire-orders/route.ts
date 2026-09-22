@@ -21,9 +21,10 @@ export async function GET(request: Request) {
     .eq("payment_status", "pending")
     .lt("expires_at", new Date().toISOString());
   if (ordersError) throw ordersError;
-  for (const order of expiredOrders ?? []) {
-    await releaseOrderStock(service, order.id);
-  }
+  // Each call is scoped to its own order/inventory rows — Postgres serializes any
+  // actual row contention internally, so firing them concurrently is safe and keeps
+  // this sweep's runtime flat as the number of expired orders grows.
+  await Promise.all((expiredOrders ?? []).map((order) => releaseOrderStock(service, order.id)));
   if (expiredOrders?.length) revalidatePath("/"); // stock just came back — refresh the cached menu
 
   const { data: expiredSubscriptions, error: subscriptionsError } = await service
@@ -32,9 +33,7 @@ export async function GET(request: Request) {
     .eq("status", "pending_payment")
     .lt("expires_at", new Date().toISOString());
   if (subscriptionsError) throw subscriptionsError;
-  for (const subscription of expiredSubscriptions ?? []) {
-    await expirePendingSubscription(service, subscription.id);
-  }
+  await Promise.all((expiredSubscriptions ?? []).map((subscription) => expirePendingSubscription(service, subscription.id)));
 
   return NextResponse.json({ ordersReleased: expiredOrders?.length ?? 0, subscriptionsExpired: expiredSubscriptions?.length ?? 0 });
 }
