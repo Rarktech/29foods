@@ -16,11 +16,16 @@ export async function POST(request: Request) {
   const transactionId = payload.data?.id?.toString();
   const txRef = payload.data?.tx_ref;
   if (!transactionId || !txRef) {
+    console.error("[flw-webhook] malformed payload", JSON.stringify(payload));
     return NextResponse.json({ error: "Malformed payload" }, { status: 400 });
   }
 
   const verified = await verifyTransaction(transactionId);
   if (!verified.isSuccessful || verified.txRef !== txRef || verified.currency !== "NGN") {
+    console.error("[flw-webhook] verification failed", {
+      transactionId, expectedTxRef: txRef, gotTxRef: verified.txRef,
+      isSuccessful: verified.isSuccessful, currency: verified.currency,
+    });
     return NextResponse.json({ error: "Transaction not verified as successful" }, { status: 400 });
   }
 
@@ -30,6 +35,7 @@ export async function POST(request: Request) {
   const { data: order } = await service.from("orders").select("id, total").eq("flutterwave_tx_ref", txRef).maybeSingle();
   if (order) {
     if (paidAmountKobo !== order.total) {
+      console.error("[flw-webhook] amount mismatch", { orderId: order.id, txRef, paidAmountKobo, orderTotal: order.total });
       return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
     }
     await markOrderPaid(service, order.id, transactionId);
@@ -43,11 +49,13 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (subscription) {
     if (paidAmountKobo !== subscription.total_paid) {
+      console.error("[flw-webhook] amount mismatch", { subscriptionId: subscription.id, txRef, paidAmountKobo, totalPaid: subscription.total_paid });
       return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
     }
     await markSubscriptionPaid(service, subscription.id, transactionId);
     return NextResponse.json({ received: true });
   }
 
+  console.error("[flw-webhook] no order or subscription found for tx_ref", txRef);
   return NextResponse.json({ error: "No order or subscription found for tx_ref" }, { status: 404 });
 }
