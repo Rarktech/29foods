@@ -71,6 +71,13 @@ const KIND_PREF_KEY: Record<NotificationKind, keyof NotificationPrefs | null> = 
   winback: "winback",
 };
 
+// Only order-related alerts interrupt with a push — everything else (deals, menu drops,
+// loyalty, cart nudges, plan renewal/expiry, referrals, winback) always lands in the
+// in-app notification list, but never pushes, even if its own toggle is on. Live order
+// progress (sendOrderProgressPush) bypasses this entirely by design — it's not routed
+// through notifyUser at all.
+const IMPORTANT_KINDS: ReadonlySet<NotificationKind> = new Set(["order_delivered"]);
+
 export interface NotifyUserInput {
   userId: string;
   kind: NotificationKind;
@@ -82,10 +89,11 @@ export interface NotifyUserInput {
 }
 
 /**
- * Records a notification in the user's in-app history and, if they haven't muted this
- * kind (and it isn't quiet hours), sends a matching push. In-app history always gets
- * the row regardless of push preference — muting push shouldn't erase the notification,
- * just the interruption.
+ * Records a notification in the user's in-app history, and — only for kinds classified
+ * as important (see IMPORTANT_KINDS), and only if they haven't muted this kind or it
+ * isn't quiet hours — sends a matching push. In-app history always gets the row
+ * regardless of push preference; muting or a non-important kind only removes the
+ * interruption, never the notification itself.
  */
 export async function notifyUser(supabase: Client, input: NotifyUserInput): Promise<void> {
   await supabase.from("notifications").insert({
@@ -97,6 +105,8 @@ export async function notifyUser(supabase: Client, input: NotifyUserInput): Prom
     thumb_url: input.thumbUrl ?? null,
     order_id: input.orderId ?? null,
   });
+
+  if (!IMPORTANT_KINDS.has(input.kind)) return;
 
   const { data: user } = await supabase.from("users").select("notification_prefs").eq("id", input.userId).maybeSingle();
   const prefs = user?.notification_prefs;

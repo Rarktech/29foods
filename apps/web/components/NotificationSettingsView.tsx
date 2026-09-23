@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import type { NotificationPrefs } from "@29foods/supabase-client";
 import { enablePush, disablePush, isPushSupported } from "@/lib/push-client";
@@ -96,6 +96,25 @@ export function NotificationSettingsView({ initialPrefs }: { initialPrefs: Notif
       fetch("/api/push/preferences", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) }).catch(() => {});
     });
   }
+
+  // notification_prefs.push is a server-side flag that can drift from reality — e.g. it
+  // defaults to true for every new account (meaning "hasn't opted out"), long before any
+  // device has actually subscribed. Reconcile the toggle against the real, live
+  // subscription state on load so it never shows ON when nothing is actually subscribed
+  // (which previously made tapping it silently call disablePush() and do nothing).
+  useEffect(() => {
+    (async () => {
+      if (!isPushSupported()) {
+        if (prefs.push) save({ push: false });
+        return;
+      }
+      const registration = await navigator.serviceWorker.ready.catch(() => null);
+      const subscription = registration ? await registration.pushManager.getSubscription().catch(() => null) : null;
+      const actuallySubscribed = !!subscription && Notification.permission === "granted";
+      if (actuallySubscribed !== prefs.push) save({ push: actuallySubscribed });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function togglePush() {
     setPushError(null);
