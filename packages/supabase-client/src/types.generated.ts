@@ -360,6 +360,35 @@ export interface Database {
           },
         ];
       };
+      spin_wins: {
+        Row: {
+          id: string; user_id: string; prize_key: string; prize_label: string; is_try_again: boolean;
+          won_at: string; expires_at: string | null; redeemed: boolean; redeemed_at: string | null;
+          redeemed_order_id: string | null; created_at: string;
+        };
+        Insert: {
+          id?: string; user_id: string; prize_key: string; prize_label: string; is_try_again?: boolean;
+          won_at?: string; expires_at?: string | null; redeemed?: boolean; redeemed_at?: string | null;
+          redeemed_order_id?: string | null; created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["spin_wins"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "spin_wins_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "spin_wins_redeemed_order_id_fkey";
+            columns: ["redeemed_order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {

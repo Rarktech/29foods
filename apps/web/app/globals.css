@@ -30,6 +30,7 @@
   --promise-fg: #6b4a1e;
   --muted-border-strong: #d8cbb9; /* unselected radio rings, dashed "add another" borders */
   --rating-icon: #c4551e;
+  --spin-banner-bg: linear-gradient(135deg, #1a1613 0%, #2a2119 100%);
 
   /* admin desktop shell — exact values from AdminDashboardWeb.dc.html (light) */
   --admin-sidebar-bg: #ffffff;
@@ -70,6 +71,7 @@
   --promise-fg: #f0c989;
   --muted-border-strong: #4a453d;
   --rating-icon: #f0c989;
+  --spin-banner-bg: linear-gradient(135deg, #171717 0%, #201a18 100%);
 
   /* admin desktop shell — exact values from AdminDashboardWebDark.dc.html /
      AdminCashierWebDark.dc.html / AdminKitchenWebDark.dc.html */
@@ -132,4 +134,37 @@ h3 {
 }
 .check-ring {
   animation: ring-pulse 1.6s ease-out infinite;
+}
+
+.hub-btn {
+  transition: transform 0.12s ease;
+}
+.hub-btn:active {
+  transform: scale(0.94);
+}
+@keyframes sheet-pop {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.sheet-pop {
+  animation: sheet-pop 0.32s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-6px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(18px) rotate(180deg);
+    opacity: 0;
+  }
+}
+.confetti-dot {
+  animation: confetti-fall 1.6s ease-in infinite;
 }

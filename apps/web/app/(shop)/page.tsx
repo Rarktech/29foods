@@ -130,6 +130,30 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </span>
         </div>
 
+        {/* Spin & Win banner */}
+        <Link
+          href="/spin"
+          className="relative mx-5 mb-6 flex items-center gap-3 overflow-hidden rounded-2xl border border-transparent p-[14px] px-4 dark:border-border"
+          style={{ background: "var(--spin-banner-bg)" }}
+        >
+          <div className="absolute -right-3.5 -top-3.5 h-[70px] w-[70px] rounded-full bg-[#FFB25C]/10" />
+          <div className="z-[1] flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16" />
+              <path d="M3 21v-5h5" />
+            </svg>
+          </div>
+          <div className="z-[1] flex-grow">
+            <div className="text-[13.5px] font-bold text-white">Spin &amp; Win</div>
+            <div className="mt-px text-[11.5px] text-[#D8CBB9]">Free spin today — discounts, drinks, delivery</div>
+          </div>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FFB25C" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="z-[1] shrink-0">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </Link>
+
         <UsualCard viewerId={profile?.id ?? null} />
 
         {/* Category chips + menu grid */}
