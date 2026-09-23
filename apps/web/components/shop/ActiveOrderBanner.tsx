@@ -23,66 +23,9 @@ const STAGE_LABEL: Record<OrderStatus, string> = {
   cancelled: "Cancelled",
 };
 
-/**
- * Sticky pill that sits above the bottom tab bar on every screen while an order
- * is live — per the "Sticky in-app banner" spec (Live order-progress notification
- * reference). Self-contained: does its own client-side lookup + realtime watch so
- * it works regardless of whether the current page renders its own BottomNav.
- */
-export function ActiveOrderBanner() {
-  const pathname = usePathname();
-  const [order, setOrder] = useState<ActiveOrder | null>(null);
-  const [now, setNow] = useState(() => Date.now());
+const PILL_HEIGHT = 74; // pill height + gap, for stacking multiple pills above the tab bar
 
-  useEffect(() => {
-    let cancelled = false;
-    const supabase = getSupabaseBrowserClient();
-
-    (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user || cancelled) return;
-
-      const { data } = await supabase
-        .from("orders")
-        .select("id, order_status, created_at")
-        .not("order_status", "in", "(delivered,cancelled,placed)")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (!cancelled && data) setOrder({ id: data.id, status: data.order_status as OrderStatus, createdAt: data.created_at });
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!order) return;
-    const supabase = getSupabaseBrowserClient();
-    const channel = supabase
-      .channel(`banner-${order.id}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${order.id}` }, (payload) => {
-        const status = payload.new.order_status as OrderStatus;
-        setOrder((prev) => (status === "delivered" || status === "cancelled" ? null : prev ? { ...prev, status } : prev));
-      })
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [order?.id]);
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Hidden on the order's own tracking page (redundant with the full tracker) and on
-  // the Notification Centre (which already surfaces the same live order as its hero card).
-  if (!order || pathname === `/order/${order.id}` || pathname === "/notifications") return null;
-
+function OrderPill({ order, now, bottom }: { order: ActiveOrder; now: number; bottom: number }) {
   const stepIndex = ETA_ORDER.indexOf(order.status);
   const minutesElapsed = Math.floor((now - new Date(order.createdAt).getTime()) / 60_000);
   const minutesRemaining = Math.max(0, 30 - minutesElapsed);
@@ -92,7 +35,7 @@ export function ActiveOrderBanner() {
     <Link
       href={`/order/${order.id}`}
       className="absolute inset-x-4 z-20 flex items-center gap-2.5 overflow-hidden rounded-2xl border border-transparent p-[11px] px-[13px] shadow-[0_10px_24px_rgba(60,40,20,0.08)] dark:border-border"
-      style={{ bottom: 92, background: "linear-gradient(135deg, #1A1613 0%, #2A2119 100%)" }}
+      style={{ bottom, background: "linear-gradient(135deg, #1A1613 0%, #2A2119 100%)" }}
     >
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-[#FFB25C] bg-[#2A2119]">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FFB25C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
@@ -110,5 +53,84 @@ export function ActiveOrderBanner() {
       </div>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFB25C" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M9 18l6-6-6-6" /></svg>
     </Link>
+  );
+}
+
+/**
+ * Sticky pill stack that sits above the bottom tab bar on every screen while any
+ * order is live — per the "Sticky in-app banner" spec (Live order-progress notification
+ * reference), extended to show one pill per concurrently active order rather than only
+ * the most recent. Self-contained: does its own client-side lookup + realtime watch so
+ * it works regardless of whether the current page renders its own BottomNav.
+ */
+export function ActiveOrderBanner() {
+  const pathname = usePathname();
+  const [orders, setOrders] = useState<ActiveOrder[]>([]);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = getSupabaseBrowserClient();
+
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || cancelled) return;
+
+      const { data } = await supabase
+        .from("orders")
+        .select("id, order_status, created_at")
+        .not("order_status", "in", "(delivered,cancelled,placed)")
+        .order("created_at", { ascending: false });
+      if (!cancelled && data) {
+        setOrders(data.map((d) => ({ id: d.id, status: d.order_status as OrderStatus, createdAt: d.created_at })));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const orderIds = orders.map((o) => o.id).join(",");
+  useEffect(() => {
+    if (!orderIds) return;
+    const supabase = getSupabaseBrowserClient();
+    const channels = orderIds.split(",").map((id) =>
+      supabase
+        .channel(`banner-${id}`)
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${id}` }, (payload) => {
+          const status = payload.new.order_status as OrderStatus;
+          if (status === "delivered" || status === "cancelled") {
+            setOrders((prev) => prev.filter((o) => o.id !== id));
+          } else {
+            setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
+          }
+        })
+        .subscribe(),
+    );
+    return () => {
+      channels.forEach((c) => supabase.removeChannel(c));
+    };
+  }, [orderIds]);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Hidden entirely on the Notification Centre (which already surfaces every live order
+  // as its own hero card), and each pill is hidden on its own order's tracking page.
+  if (pathname === "/notifications") return null;
+  const visible = orders.filter((o) => pathname !== `/order/${o.id}`);
+  if (visible.length === 0) return null;
+
+  return (
+    <>
+      {visible.map((order, i) => (
+        <OrderPill key={order.id} order={order} now={now} bottom={92 + i * PILL_HEIGHT} />
+      ))}
+    </>
   );
 }

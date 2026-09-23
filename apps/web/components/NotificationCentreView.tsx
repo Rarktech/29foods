@@ -144,40 +144,148 @@ function liveCardCopy(live: LiveOrder, stage: number): string {
   }
 }
 
-export function NotificationCentreView({ initialNotifications, initialLive }: { initialNotifications: NotificationRow[]; initialLive: LiveOrder | null }) {
+function LiveOrderCard({ live }: { live: LiveOrder }) {
+  const currentStage = Math.max(0, STAGE_INDEX[live.status]);
+  const isDone = currentStage === 3;
+  const minutesElapsed = Math.floor((Date.now() - new Date(live.createdAt).getTime()) / 60_000);
+  const minutesRemaining = Math.max(0, 30 - minutesElapsed);
+  const liveSteps = LIVE_STEPS.map((step, i) => ({
+    ...step,
+    done: i < currentStage || isDone,
+    current: i === currentStage && !isDone,
+  }));
+  const stageEnteredIso = live.stageEnteredAt[STAGE_KEYS[currentStage]!] ?? live.createdAt;
+  const cardBorderCls = isDone ? "border-success" : "border-border";
+  const ringCls = isDone ? "border-success" : "border-accent";
+  const pipBg = isDone ? "bg-success" : "bg-[#FFB25C]";
+  const etaCls = isDone ? "bg-success-bg text-success" : "bg-accent-tint text-accent";
+
+  return (
+    <Link
+      href={`/order/${live.orderId}`}
+      className={`block overflow-hidden rounded-[20px] border bg-card p-[15px] pb-3.5 shadow-[0_4px_14px_rgba(60,40,20,0.08)] ${cardBorderCls}`}
+    >
+      <div className="mb-3 flex items-center gap-2">
+        <img src="/icons/icon-192.png" alt="" className="h-[17px] w-[17px] shrink-0 rounded object-contain" />
+        <span className="text-[10px] font-extrabold tracking-[0.08em] text-muted">29FOODS</span>
+        <span className="text-[10px] font-bold text-muted">{live.shortOrderId}</span>
+        <span className="flex-grow" />
+        <span className="text-[10px] font-semibold text-muted">{stageEnteredIso ? timeAgo(stageEnteredIso) : "now"}</span>
+      </div>
+
+      <div className="mb-3.5 flex items-start gap-[13px]">
+        <div className="relative shrink-0">
+          <div className={`h-14 w-14 overflow-hidden rounded-full border-[2.5px] ${ringCls}`}>
+            <Image src={dishPhoto} alt="" width={56} height={56} className="h-full w-full object-cover" />
+          </div>
+          <span className={`absolute bottom-0 right-0 flex h-[18px] w-[18px] items-center justify-center rounded-full border-[2.5px] border-card ${pipBg}`}>
+            {isDone ? (
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="4.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+            ) : (
+              <span className="h-[6px] w-[6px] rounded-full bg-[#1A1613]" />
+            )}
+          </span>
+        </div>
+        <div className="min-w-0 flex-grow">
+          <div className="text-[16px] font-extrabold tracking-[-0.01em] text-heading">{LIVE_STEPS[currentStage]!.label}</div>
+          <div className="mt-[3px] text-[12px] leading-[1.4] text-body">{liveCardCopy(live, currentStage)}</div>
+          <div className={`mt-[9px] inline-flex items-center gap-1.5 rounded-full px-[11px] py-[5px] ${etaCls}`}>
+            {isDone ? (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
+            )}
+            <span className="text-[11.5px] font-extrabold">
+              {isDone
+                ? `Delivered · ${live.stageEnteredAt.delivered ? formatClockTime(live.stageEnteredAt.delivered) : ""}`
+                : `Arriving in ${minutesRemaining} min`}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-start">
+        {liveSteps.map((step, i) => (
+          <div key={step.label} className="box-border flex min-w-0 items-start" style={{ flexGrow: i === 0 ? 0 : 1 }}>
+            {i > 0 && <div className={`mt-3 h-0.5 flex-grow ${i <= currentStage ? "bg-accent" : "bg-[#D8CBB9] dark:bg-[#3A332C]"}`} />}
+            <div className="flex w-[60px] shrink-0 flex-col items-center gap-[5px]">
+              <div
+                className={`box-border flex h-[26px] w-[26px] items-center justify-center rounded-full border-2 ${
+                  step.done
+                    ? "border-accent bg-accent"
+                    : step.current
+                      ? "border-accent bg-card"
+                      : "border-[#D8CBB9] bg-[#D8CBB9] dark:border-[#3A332C] dark:bg-[#3A332C]"
+                }`}
+              >
+                {step.done ? (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                ) : (
+                  <span className={`text-[11px] font-extrabold ${step.current ? "text-accent" : "text-muted"}`}>{i + 1}</span>
+                )}
+              </div>
+              <span className={`text-center text-[8.5px] leading-[1.2] ${step.current ? "font-extrabold text-heading" : step.done ? "font-bold text-accent" : "font-semibold text-muted"}`}>
+                {step.label}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {currentStage >= 1 && live.riderName && (
+        <div className="mt-[13px] flex items-center gap-2.5 rounded-[14px] bg-[#F1E8DC] px-[11px] py-[9px] dark:bg-[#1F1F1F]">
+          <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-accent">
+            <span className="text-[12px] font-extrabold text-white">{live.riderName.charAt(0)}</span>
+          </div>
+          <div className="min-w-0 flex-grow">
+            <div className="text-[12.5px] font-extrabold text-heading">{live.riderName}</div>
+            <div className="text-[10.5px] text-muted">{STAGE_RIDER_NOTE[currentStage]}</div>
+          </div>
+          <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-success-bg">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--color-success))" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" /></svg>
+          </span>
+        </div>
+      )}
+    </Link>
+  );
+}
+
+export function NotificationCentreView({ initialNotifications, initialLive }: { initialNotifications: NotificationRow[]; initialLive: LiveOrder[] }) {
   const [items, setItems] = useState(initialNotifications);
   const [filter, setFilter] = useState<Filter>("all");
-  const [live, setLive] = useState(initialLive);
+  const [liveOrders, setLiveOrders] = useState(initialLive);
 
+  const liveOrderIds = liveOrders.map((o) => o.orderId).join(",");
   useEffect(() => {
-    if (!live) return;
+    if (!liveOrderIds) return;
     const supabase = getSupabaseBrowserClient();
-    const channel = supabase
-      .channel(`notif-live-${live.orderId}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${live.orderId}` }, (payload) => {
-        const status = payload.new.order_status as LiveOrder["status"];
-        if (status === "cancelled") {
-          setLive(null);
-          return;
-        }
-        // "Delivered" is a real, displayed 4th stage (green/done) — the card stays up
-        // for the rest of this session instead of disappearing the instant it lands.
-        const now = new Date().toISOString();
-        setLive((prev) => {
-          if (!prev) return prev;
-          const isStageKey = (s: string): s is (typeof STAGE_KEYS)[number] => (STAGE_KEYS as readonly string[]).includes(s);
-          return {
-            ...prev,
-            status,
-            stageEnteredAt: isStageKey(status) ? { ...prev.stageEnteredAt, [status]: now } : prev.stageEnteredAt,
-          };
-        });
-      })
-      .subscribe();
+    const isStageKey = (s: string): s is (typeof STAGE_KEYS)[number] => (STAGE_KEYS as readonly string[]).includes(s);
+    const channels = liveOrderIds.split(",").map((orderId) =>
+      supabase
+        .channel(`notif-live-${orderId}`)
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "orders", filter: `id=eq.${orderId}` }, (payload) => {
+          const status = payload.new.order_status as LiveOrder["status"];
+          if (status === "cancelled") {
+            setLiveOrders((prev) => prev.filter((o) => o.orderId !== orderId));
+            return;
+          }
+          // "Delivered" is a real, displayed 4th stage (green/done) — the card stays up
+          // for the rest of this session instead of disappearing the instant it lands.
+          const now = new Date().toISOString();
+          setLiveOrders((prev) =>
+            prev.map((o) =>
+              o.orderId === orderId
+                ? { ...o, status, stageEnteredAt: isStageKey(status) ? { ...o.stageEnteredAt, [status]: now } : o.stageEnteredAt }
+                : o,
+            ),
+          );
+        })
+        .subscribe(),
+    );
     return () => {
-      supabase.removeChannel(channel);
+      channels.forEach((c) => supabase.removeChannel(c));
     };
-  }, [live?.orderId]);
+  }, [liveOrderIds]);
 
   async function markRead(id: string) {
     setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
@@ -190,7 +298,7 @@ export function NotificationCentreView({ initialNotifications, initialLive }: { 
   }
 
   const filtered = useMemo(() => items.filter((n) => filter === "all" || CAT[n.kind] === filter), [items, filter]);
-  const showLive = !!live && filter !== "offers";
+  const showLive = liveOrders.length > 0 && filter !== "offers";
 
   const groups = useMemo(() => {
     const buckets: Record<"today" | "yesterday" | "earlier", NotificationRow[]> = { today: [], yesterday: [], earlier: [] };
@@ -202,24 +310,9 @@ export function NotificationCentreView({ initialNotifications, initialLive }: { 
     ].filter((g) => g.items.length > 0);
   }, [filtered]);
 
-  const unreadCount = items.filter((n) => !n.read).length + (showLive ? 1 : 0);
-  const hasAnythingEver = items.length > 0 || !!initialLive;
+  const unreadCount = items.filter((n) => !n.read).length + (showLive ? liveOrders.length : 0);
+  const hasAnythingEver = items.length > 0 || initialLive.length > 0;
   const filterEmpty = groups.length === 0 && !showLive;
-
-  const currentStage = live ? Math.max(0, STAGE_INDEX[live.status]) : 0;
-  const isDone = currentStage === 3;
-  const minutesElapsed = live ? Math.floor((Date.now() - new Date(live.createdAt).getTime()) / 60_000) : 0;
-  const minutesRemaining = Math.max(0, 30 - minutesElapsed);
-  const liveSteps = LIVE_STEPS.map((step, i) => ({
-    ...step,
-    done: i < currentStage || isDone,
-    current: i === currentStage && !isDone,
-  }));
-  const stageEnteredIso = live ? (live.stageEnteredAt[STAGE_KEYS[currentStage]!] ?? live.createdAt) : null;
-  const cardBorderCls = isDone ? "border-success" : "border-border";
-  const ringCls = isDone ? "border-success" : "border-accent";
-  const pipBg = isDone ? "bg-success" : "bg-[#FFB25C]";
-  const etaCls = isDone ? "bg-success-bg text-success" : "bg-accent-tint text-accent";
 
   return (
     <div className="flex h-screen flex-col bg-bg">
@@ -248,95 +341,14 @@ export function NotificationCentreView({ initialNotifications, initialLive }: { 
       </div>
 
       <div className="scrollbar-none flex-grow overflow-y-auto px-[18px] pb-[34px] pt-1">
-        {showLive && live && (
+        {showLive && (
           <div className="mb-[18px]">
             <p className="mb-2.5 text-[10.5px] font-extrabold uppercase tracking-[0.09em] text-muted">Today</p>
-            <Link
-              href={`/order/${live.orderId}`}
-              className={`block overflow-hidden rounded-[20px] border bg-card p-[15px] pb-3.5 shadow-[0_4px_14px_rgba(60,40,20,0.08)] ${cardBorderCls}`}
-            >
-              <div className="mb-3 flex items-center gap-2">
-                <img src="/icons/icon-192.png" alt="" className="h-[17px] w-[17px] shrink-0 rounded object-contain" />
-                <span className="text-[10px] font-extrabold tracking-[0.08em] text-muted">29FOODS</span>
-                <span className="text-[10px] font-bold text-muted">{live.shortOrderId}</span>
-                <span className="flex-grow" />
-                <span className="text-[10px] font-semibold text-muted">{stageEnteredIso ? timeAgo(stageEnteredIso) : "now"}</span>
-              </div>
-
-              <div className="mb-3.5 flex items-start gap-[13px]">
-                <div className="relative shrink-0">
-                  <div className={`h-14 w-14 overflow-hidden rounded-full border-[2.5px] ${ringCls}`}>
-                    <Image src={dishPhoto} alt="" width={56} height={56} className="h-full w-full object-cover" />
-                  </div>
-                  <span className={`absolute bottom-0 right-0 flex h-[18px] w-[18px] items-center justify-center rounded-full border-[2.5px] border-card ${pipBg}`}>
-                    {isDone ? (
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="4.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                    ) : (
-                      <span className="h-[6px] w-[6px] rounded-full bg-[#1A1613]" />
-                    )}
-                  </span>
-                </div>
-                <div className="min-w-0 flex-grow">
-                  <div className="text-[16px] font-extrabold tracking-[-0.01em] text-heading">{LIVE_STEPS[currentStage]!.label}</div>
-                  <div className="mt-[3px] text-[12px] leading-[1.4] text-body">{liveCardCopy(live, currentStage)}</div>
-                  <div className={`mt-[9px] inline-flex items-center gap-1.5 rounded-full px-[11px] py-[5px] ${etaCls}`}>
-                    {isDone ? (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                    ) : (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
-                    )}
-                    <span className="text-[11.5px] font-extrabold">
-                      {isDone
-                        ? `Delivered · ${live.stageEnteredAt.delivered ? formatClockTime(live.stageEnteredAt.delivered) : ""}`
-                        : `Arriving in ${minutesRemaining} min`}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start">
-                {liveSteps.map((step, i) => (
-                  <div key={step.label} className="box-border flex min-w-0 items-start" style={{ flexGrow: i === 0 ? 0 : 1 }}>
-                    {i > 0 && <div className={`mt-3 h-0.5 flex-grow ${i <= currentStage ? "bg-accent" : "bg-[#D8CBB9] dark:bg-[#3A332C]"}`} />}
-                    <div className="flex w-[60px] shrink-0 flex-col items-center gap-[5px]">
-                      <div
-                        className={`box-border flex h-[26px] w-[26px] items-center justify-center rounded-full border-2 ${
-                          step.done
-                            ? "border-accent bg-accent"
-                            : step.current
-                              ? "border-accent bg-card"
-                              : "border-[#D8CBB9] bg-[#D8CBB9] dark:border-[#3A332C] dark:bg-[#3A332C]"
-                        }`}
-                      >
-                        {step.done ? (
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                        ) : (
-                          <span className={`text-[11px] font-extrabold ${step.current ? "text-accent" : "text-muted"}`}>{i + 1}</span>
-                        )}
-                      </div>
-                      <span className={`text-center text-[8.5px] leading-[1.2] ${step.current ? "font-extrabold text-heading" : step.done ? "font-bold text-accent" : "font-semibold text-muted"}`}>
-                        {step.label}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {currentStage >= 1 && live.riderName && (
-                <div className="mt-[13px] flex items-center gap-2.5 rounded-[14px] bg-[#F1E8DC] px-[11px] py-[9px] dark:bg-[#1F1F1F]">
-                  <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-accent">
-                    <span className="text-[12px] font-extrabold text-white">{live.riderName.charAt(0)}</span>
-                  </div>
-                  <div className="min-w-0 flex-grow">
-                    <div className="text-[12.5px] font-extrabold text-heading">{live.riderName}</div>
-                    <div className="text-[10.5px] text-muted">{STAGE_RIDER_NOTE[currentStage]}</div>
-                  </div>
-                  <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-success-bg">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--color-success))" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" /></svg>
-                  </span>
-                </div>
-              )}
-            </Link>
+            <div className="flex flex-col gap-3">
+              {liveOrders.map((live) => (
+                <LiveOrderCard key={live.orderId} live={live} />
+              ))}
+            </div>
           </div>
         )}
 

@@ -15,7 +15,7 @@ export default async function NotificationsPage() {
   const { data: profile } = await supabase.from("users").select("id").eq("auth_uid", user.id).maybeSingle();
   if (!profile) redirect("/login?next=/notifications");
 
-  const [{ data: notifications }, { data: liveOrder }] = await Promise.all([
+  const [{ data: notifications }, { data: liveOrders }] = await Promise.all([
     supabase
       .from("notifications")
       .select("id, kind, title, body, href, thumb_url, read, created_at")
@@ -27,55 +27,57 @@ export default async function NotificationsPage() {
       .select("id, order_status, items, lodge, room, created_at, paid_at, delivered_at, assigned_rider_id")
       .eq("user_id", profile.id)
       .not("order_status", "in", "(delivered,cancelled,placed)")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .order("created_at", { ascending: false }),
   ]);
 
-  let live: LiveOrder | null = null;
-  if (liveOrder) {
+  let live: LiveOrder[] = [];
+  if (liveOrders?.length) {
     // riders and order_status_events are both admin-only RLS (no customer select policy),
     // so both lookups need the service-role client even though the rest of this page reads
-    // as the signed-in user.
+    // as the signed-in user. Batched across every live order rather than N+1 queries.
     const service = getSupabaseServiceClient();
+    const orderIds = liveOrders.map((o) => o.id);
+    const riderIds = [...new Set(liveOrders.map((o) => o.assigned_rider_id).filter((id): id is string => !!id))];
 
-    let riderName: string | null = null;
-    if (liveOrder.assigned_rider_id) {
-      const { data: rider } = await service.from("riders").select("name").eq("id", liveOrder.assigned_rider_id).maybeSingle();
-      riderName = rider?.name ?? null;
-    }
+    const [{ data: riders }, { data: events }] = await Promise.all([
+      riderIds.length
+        ? service.from("riders").select("id, name").in("id", riderIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      service
+        .from("order_status_events")
+        .select("order_id, to_status, applied_at, created_at")
+        .in("order_id", orderIds)
+        .eq("applied", true)
+        .in("to_status", ["ready", "out_for_delivery"])
+        .order("created_at", { ascending: true }),
+    ]);
 
-    // 'ready'/'out_for_delivery' have no dedicated timestamp column on orders, unlike paid_at/delivered_at.
-    const { data: events } = await service
-      .from("order_status_events")
-      .select("to_status, applied_at, created_at")
-      .eq("order_id", liveOrder.id)
-      .eq("applied", true)
-      .in("to_status", ["ready", "out_for_delivery"])
-      .order("created_at", { ascending: true });
+    const riderNameById = new Map((riders ?? []).map((r) => [r.id, r.name]));
 
-    const stageEnteredAt: LiveOrder["stageEnteredAt"] = {
-      paid: liveOrder.paid_at ?? liveOrder.created_at,
-      delivered: liveOrder.delivered_at,
-    };
-    for (const e of events ?? []) {
-      if (e.to_status === "ready" || e.to_status === "out_for_delivery") {
-        stageEnteredAt[e.to_status] = e.applied_at ?? e.created_at;
+    live = liveOrders.map((order) => {
+      const stageEnteredAt: LiveOrder["stageEnteredAt"] = {
+        paid: order.paid_at ?? order.created_at,
+        delivered: order.delivered_at,
+      };
+      for (const e of events ?? []) {
+        if (e.order_id === order.id && (e.to_status === "ready" || e.to_status === "out_for_delivery")) {
+          stageEnteredAt[e.to_status] = e.applied_at ?? e.created_at;
+        }
       }
-    }
 
-    const items = liveOrder.items as { name: string; qty: number }[];
-    live = {
-      orderId: liveOrder.id,
-      shortOrderId: `#29F-${liveOrder.id.slice(0, 4).toUpperCase()}`,
-      status: liveOrder.order_status,
-      dishSummary: items[0]?.name ?? "your order",
-      lodge: liveOrder.lodge,
-      room: liveOrder.room,
-      riderName,
-      createdAt: liveOrder.created_at,
-      stageEnteredAt,
-    };
+      const items = order.items as { name: string; qty: number }[];
+      return {
+        orderId: order.id,
+        shortOrderId: `#29F-${order.id.slice(0, 4).toUpperCase()}`,
+        status: order.order_status,
+        dishSummary: items[0]?.name ?? "your order",
+        lodge: order.lodge,
+        room: order.room,
+        riderName: order.assigned_rider_id ? (riderNameById.get(order.assigned_rider_id) ?? null) : null,
+        createdAt: order.created_at,
+        stageEnteredAt,
+      };
+    });
   }
 
   return <NotificationCentreView initialNotifications={(notifications ?? []) as NotificationRow[]} initialLive={live} />;
