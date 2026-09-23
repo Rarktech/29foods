@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import Image from "next/image";
@@ -10,7 +10,7 @@ const SEGMENT_ANGLE = 45;
 const EXTRA_SPINS = 5;
 const SPIN_DURATION_MS = 4300;
 
-// Boundary points on the r=138 ring, clockwise from 12 o'clock â€” wedge i spans
+// Boundary points on the r=138 ring, clockwise from 12 o'clock — wedge i spans
 // BOUNDARY_POINTS[i] to BOUNDARY_POINTS[i+1], matching PRIZES' index order exactly.
 const BOUNDARY_POINTS: [number, number][] = [
   [150, 12], [247.58, 52.42], [288, 150], [247.58, 247.58],
@@ -25,15 +25,15 @@ function wedgePath(i: number): string {
 const WEDGE_FILL = [
   "fill-accent", // 10% off
   "fill-[#1A1613] dark:fill-[#0A0A0A]", // free Fanta
-  "fill-accent", // â‚¦500 off
+  "fill-accent", // ₦500 off
   "fill-[#1A1613] dark:fill-[#0A0A0A]", // try again
   "fill-[#1A1613] dark:fill-[#0A0A0A]", // free food
-  "fill-[#1A1613] dark:fill-[#0A0A0A]", // â‚¦1,000 off
+  "fill-[#1A1613] dark:fill-[#0A0A0A]", // ₦1,000 off
   "fill-[#FFB25C] dark:fill-[#F0C989]", // 20% off (jackpot)
   "fill-[#1A1613] dark:fill-[#0A0A0A]", // free delivery
 ];
 
-// Label anchor per wedge â€” every label group counter-rotates around its own anchor
+// Label anchor per wedge — every label group counter-rotates around its own anchor
 // so it (and, for the image wedges, the thumbnail) always reads upright and
 // horizontal on screen, no matter how the wheel underneath has spun.
 const LABEL_ANCHOR: [number, number][] = [
@@ -43,15 +43,15 @@ const LABEL_ANCHOR: [number, number][] = [
 
 const TEXT_WEDGES: Record<number, { lines: { text: string; dy: number; size: number; cls: string; bold?: boolean }[] }> = {
   0: { lines: [{ text: "10%", dy: -7, size: 13, cls: "fill-white" }, { text: "OFF", dy: 8, size: 10, cls: "fill-[#FFE3DE] dark:fill-[#FFDAD3]", bold: true }] },
-  2: { lines: [{ text: "â‚¦500", dy: -7, size: 13, cls: "fill-white" }, { text: "OFF", dy: 8, size: 10, cls: "fill-[#FFE3DE] dark:fill-[#FFDAD3]", bold: true }] },
+  2: { lines: [{ text: "₦500", dy: -7, size: 13, cls: "fill-white" }, { text: "OFF", dy: 8, size: 10, cls: "fill-[#FFE3DE] dark:fill-[#FFDAD3]", bold: true }] },
   3: { lines: [{ text: "Try", dy: -7, size: 12, cls: "fill-[#D8CBB9] dark:fill-[#A8A29B]" }, { text: "again", dy: 8, size: 12, cls: "fill-[#D8CBB9] dark:fill-[#A8A29B]" }] },
-  5: { lines: [{ text: "â‚¦1,000", dy: -7, size: 12, cls: "fill-[#D8CBB9] dark:fill-[#A8A29B]" }, { text: "OFF", dy: 8, size: 9.5, cls: "fill-[#B4A797] dark:fill-[#6B6560]", bold: true }] },
+  5: { lines: [{ text: "₦1,000", dy: -7, size: 12, cls: "fill-[#D8CBB9] dark:fill-[#A8A29B]" }, { text: "OFF", dy: 8, size: 9.5, cls: "fill-[#B4A797] dark:fill-[#6B6560]", bold: true }] },
   6: { lines: [{ text: "20%", dy: -7, size: 14, cls: "fill-[#1A1613]" }, { text: "OFF", dy: 8, size: 9.5, cls: "fill-[#6B4A1E]" }] },
   7: { lines: [{ text: "Free", dy: -7, size: 12, cls: "fill-[#D8CBB9] dark:fill-[#A8A29B]" }, { text: "delivery", dy: 8, size: 11, cls: "fill-[#B4A797] dark:fill-[#6B6560]" }] },
 };
 
 // The two "photo" wedges (Fanta, food) show a small upright thumbnail instead of
-// a full-bleed clipped photo â€” a full-bleed image inside the wheel's own rotating
+// a full-bleed clipped photo — a full-bleed image inside the wheel's own rotating
 // SVG can't be kept upright without its clip window sweeping oddly across a frozen
 // photo, so a small counter-rotating thumbnail (same technique as the text) is the
 // clean way to keep it "horizontally aligned" the way the text labels are.
@@ -69,7 +69,7 @@ function SpinResultCode({ prize, expiresAt }: { prize: Prize; expiresAt: string 
         <rect x="3.5" y="5" width="17" height="14" rx="2" />
       </svg>
       <span className="text-[13px] font-extrabold tracking-[0.02em] text-accent">{prize.key}</span>
-      <span className="text-[11px] text-muted">Â· expires in {hours}h</span>
+      <span className="text-[11px] text-muted">· expires in {hours}h</span>
     </div>
   );
 }
@@ -101,7 +101,7 @@ export function SpinWheelView({ initialSpinsLeft }: { initialSpinsLeft: number }
       index = data.index;
       expiresAt = data.expiresAt ?? null;
     } catch {
-      setError("Network error â€” try again.");
+      setError("Network error — try again.");
       setSpinning(false);
       return;
     }
@@ -132,7 +132,7 @@ export function SpinWheelView({ initialSpinsLeft }: { initialSpinsLeft: number }
 
   const wheelRotationNeg = -wheelRotation;
   const isTryAgain = !!result?.prize.tryAgain;
-  const hubLabel = spinning ? "â€¦" : spinsLeft > 0 ? "SPIN" : "DONE";
+  const hubLabel = spinning ? "…" : spinsLeft > 0 ? "SPIN" : "DONE";
 
   return (
     <div className="flex h-screen flex-col bg-bg">
@@ -151,8 +151,8 @@ export function SpinWheelView({ initialSpinsLeft }: { initialSpinsLeft: number }
         <div className="relative z-[5] mt-2 flex w-[84%] shrink-0 flex-col gap-2 rounded-2xl border border-border bg-card p-[14px]">
           <div className="text-[11px] font-extrabold uppercase tracking-[0.07em] text-muted">How it works</div>
           {[
-            "One free spin per day â€” more when you order.",
-            "Every slice wins â€” worst case, you try again tomorrow.",
+            "One free spin per day — more when you order.",
+            "Every slice wins — worst case, you try again tomorrow.",
             `Discounts and free items land in your cart automatically for ${REDEMPTION_WINDOW_HOURS} hours.`,
           ].map((line, i) => (
             <div key={i} className="flex items-start gap-2.5">
