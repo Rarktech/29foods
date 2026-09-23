@@ -164,16 +164,16 @@ export function SpinWheelView({ initialSpinsLeft }: { initialSpinsLeft: number }
 
         {error && <div className="relative z-[5] mt-2 text-[12px] font-semibold text-accent">{error}</div>}
 
-        {/* Wheel: oversized, full-bleed, clipped at the screen edges and flush against the bottom */}
+        {/* Wheel: oversized, full-bleed, anchored below the bottom edge so its lower
+            curve (and the side edges where it would round back in) is cut off by the base */}
         <div className="relative mt-2.5 w-[calc(100%+40px)] flex-grow overflow-hidden" style={{ margin: "10px -20px 0 -20px" }}>
-          <Image
-            src={pepperPointer}
-            alt=""
-            className="pointer-events-none absolute left-1/2 top-[10px] z-[4] h-[260px] w-auto -translate-x-1/2 drop-shadow-[0_3px_4px_rgba(60,40,20,0.25)] dark:drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]"
-            priority
-          />
-
-          <div className="absolute left-1/2 top-[142px] h-[500px] w-[500px] -translate-x-1/2">
+          <div className="absolute bottom-[-130px] left-1/2 h-[500px] w-[500px] -translate-x-1/2">
+            <Image
+              src={pepperPointer}
+              alt=""
+              className="pointer-events-none absolute left-1/2 top-[-132px] z-[4] h-[260px] w-auto -translate-x-1/2 drop-shadow-[0_3px_4px_rgba(60,40,20,0.25)] dark:drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]"
+              priority
+            />
             <div className="absolute inset-0 rounded-full bg-[#1A1613] shadow-[0_14px_34px_rgba(60,40,20,0.24)] dark:bg-[#171717] dark:shadow-[0_14px_34px_rgba(0,0,0,0.55)]" />
 
             <svg
