@@ -12,12 +12,26 @@ export function isPushSupported(): boolean {
   return typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 }
 
+/**
+ * Registers /sw.js (idempotent — a no-op if already registered) and waits for it to
+ * become active, with a timeout. `navigator.serviceWorker.ready` on its own can hang
+ * forever with zero feedback if registration never settles (e.g. a slow first visit,
+ * or a stuck "waiting" worker) — that hang previously looked exactly like the toggle
+ * silently doing nothing when tapped.
+ */
+export async function getReadyRegistration(): Promise<ServiceWorkerRegistration> {
+  if (!isPushSupported()) throw new Error("Push isn't supported in this browser.");
+  await navigator.serviceWorker.register("/sw.js").catch(() => {});
+  const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Service worker took too long to start.")), 8000));
+  return Promise.race([navigator.serviceWorker.ready, timeout]);
+}
+
 /** Requests OS permission, subscribes via the service worker, and saves the subscription server-side. Throws if the user declines. */
 export async function enablePush(): Promise<void> {
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("Notifications permission was not granted.");
 
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await getReadyRegistration();
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   if (!vapidPublicKey) throw new Error("Push is not configured.");
 
@@ -37,7 +51,8 @@ export async function enablePush(): Promise<void> {
 
 export async function disablePush(): Promise<void> {
   if (!isPushSupported()) return;
-  const registration = await navigator.serviceWorker.ready;
+  const registration = await getReadyRegistration().catch(() => null);
+  if (!registration) return;
   const subscription = await registration.pushManager.getSubscription();
   if (!subscription) return;
 

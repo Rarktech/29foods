@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import type { NotificationPrefs } from "@29foods/supabase-client";
-import { enablePush, disablePush, isPushSupported } from "@/lib/push-client";
+import { enablePush, disablePush, isPushSupported, getReadyRegistration } from "@/lib/push-client";
 
 interface RowDef {
   key?: keyof NotificationPrefs; // absent only for the always-on "Order progress" row — it isn't a real toggle
@@ -108,7 +108,7 @@ export function NotificationSettingsView({ initialPrefs }: { initialPrefs: Notif
         if (prefs.push) save({ push: false });
         return;
       }
-      const registration = await navigator.serviceWorker.ready.catch(() => null);
+      const registration = await getReadyRegistration().catch(() => null);
       const subscription = registration ? await registration.pushManager.getSubscription().catch(() => null) : null;
       const actuallySubscribed = !!subscription && Notification.permission === "granted";
       if (actuallySubscribed !== prefs.push) save({ push: actuallySubscribed });
