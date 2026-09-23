@@ -130,6 +130,7 @@ export interface OrderProgressInput {
   shortOrderId: string; // e.g. "29F-1042" — what the reference copy shows, not the uuid
   stage: OrderProgressStage;
   dishSummary: string;
+  dishImageUrl?: string | null; // shown as the notification-centre row's thumbnail once delivered
   lodge: string;
   room: string | null;
   etaMinutes: number;
@@ -160,6 +161,7 @@ export async function sendOrderProgressPush(supabase: Client, input: OrderProgre
       body,
       href: `/order/${input.orderId}`,
       order_id: input.orderId,
+      thumb_url: input.dishImageUrl ?? null,
     });
   }
 }

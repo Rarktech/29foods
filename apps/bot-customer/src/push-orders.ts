@@ -28,7 +28,7 @@ export function subscribeToWebOrderPush() {
         const after = payload.new as {
           id: string;
           user_id: string;
-          items: { name: string; qty: number }[];
+          items: { name: string; qty: number; menu_item_id?: string }[];
           lodge: string;
           room: string | null;
           order_status: string;
@@ -50,12 +50,20 @@ export function subscribeToWebOrderPush() {
         const etaMinutes = Math.max(0, 30 - minutesElapsed);
         const dishSummary = after.items[0]?.name ?? "your order";
 
+        let dishImageUrl: string | null = null;
+        const firstMenuItemId = after.items[0]?.menu_item_id;
+        if (stage === "delivered" && firstMenuItemId) {
+          const { data: menuItem } = await supabase.from("menu_items").select("image_url").eq("id", firstMenuItemId).maybeSingle();
+          dishImageUrl = menuItem?.image_url ?? null;
+        }
+
         await sendOrderProgressPush(supabase, {
           userId: after.user_id,
           orderId: after.id,
           shortOrderId: `#29F-${after.id.slice(0, 4).toUpperCase()}`,
           stage,
           dishSummary,
+          dishImageUrl,
           lodge: after.lodge,
           room: after.room,
           etaMinutes,

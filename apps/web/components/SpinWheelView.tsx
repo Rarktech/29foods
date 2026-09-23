@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { PRIZES, REDEMPTION_WINDOW_HOURS, type Prize } from "@29foods/core";
+import pepperPointer from "@/public/images/misc/pepper-pointer.png";
 
 const SEGMENT_ANGLE = 45;
 const EXTRA_SPINS = 5;
@@ -146,13 +148,7 @@ export function SpinWheelView({ initialSpinsLeft }: { initialSpinsLeft: number }
       </div>
 
       <div className="scrollbar-none flex flex-grow flex-col items-center overflow-hidden px-5 pt-1">
-        <div className="relative z-[5] mt-1 shrink-0 text-center">
-          <div className="mb-1 text-[12.5px] font-bold uppercase tracking-[0.06em] text-accent">Free stuff, on the house</div>
-          <div className="mx-auto mb-2 max-w-[280px] text-[13px] leading-[1.4] text-muted">One free spin every day you order. Every slice wins something.</div>
-          <div className="mx-auto max-w-[260px] text-[11.5px] leading-[1.5] text-muted">Tap the wheel to spin. Discount wins apply to your next order at checkout — automatically, no code to remember.</div>
-        </div>
-
-        <div className="relative z-[5] mt-[14px] flex w-[84%] shrink-0 flex-col gap-2 rounded-2xl border border-border bg-card p-[14px]">
+        <div className="relative z-[5] mt-2 flex w-[84%] shrink-0 flex-col gap-2 rounded-2xl border border-border bg-card p-[14px]">
           <div className="text-[11px] font-extrabold uppercase tracking-[0.07em] text-muted">How it works</div>
           {[
             "One free spin per day — more when you order.",
@@ -170,8 +166,12 @@ export function SpinWheelView({ initialSpinsLeft }: { initialSpinsLeft: number }
 
         {/* Wheel: oversized, full-bleed, clipped at the screen edges and flush against the bottom */}
         <div className="relative mt-2.5 w-[calc(100%+40px)] flex-grow overflow-hidden" style={{ margin: "10px -20px 0 -20px" }}>
-          <div className="pointer-events-none absolute left-1/2 top-[132px] z-[3] h-0 w-0 -translate-x-1/2 dark:hidden" style={{ borderLeft: "14px solid transparent", borderRight: "14px solid transparent", borderTop: "24px solid #1A1613", filter: "drop-shadow(0 3px 4px rgba(60,40,20,0.25))" }} />
-          <div className="pointer-events-none absolute left-1/2 top-[132px] z-[3] hidden h-0 w-0 -translate-x-1/2 dark:block" style={{ borderLeft: "14px solid transparent", borderRight: "14px solid transparent", borderTop: "24px solid #FAF6F0", filter: "drop-shadow(0 3px 4px rgba(0,0,0,0.5))" }} />
+          <Image
+            src={pepperPointer}
+            alt=""
+            className="pointer-events-none absolute left-1/2 top-[92px] z-[3] h-[52px] w-auto -translate-x-1/2 drop-shadow-[0_3px_4px_rgba(60,40,20,0.25)] dark:drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]"
+            priority
+          />
 
           <div className="absolute left-1/2 top-[142px] h-[500px] w-[500px] -translate-x-1/2">
             <div className="absolute inset-0 rounded-full bg-[#1A1613] shadow-[0_14px_34px_rgba(60,40,20,0.24)] dark:bg-[#171717] dark:shadow-[0_14px_34px_rgba(0,0,0,0.55)]" />
