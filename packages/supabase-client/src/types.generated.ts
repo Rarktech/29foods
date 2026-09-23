@@ -4,6 +4,24 @@
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
+export interface NotificationPrefs {
+  riderMsg: boolean;
+  delivered: boolean;
+  flash: boolean;
+  menuDrop: boolean;
+  planRenew: boolean;
+  planTomorrow: boolean;
+  cartNudge: boolean;
+  winback: boolean;
+  points: boolean;
+  referral: boolean;
+  push: boolean;
+  sms: boolean;
+  quiet: boolean;
+  quietFrom: string;
+  quietTo: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -31,12 +49,14 @@ export interface Database {
           email: string | null; name: string | null; avatar_url: string | null;
           lodge: string | null; room: string | null; acquired_via_qr: string | null;
           favourites: Json; loyalty_points: number; last_order_at: string | null; created_at: string;
+          notification_prefs: NotificationPrefs;
         };
         Insert: {
           id?: string; auth_uid?: string | null; telegram_id?: number | null; phone?: string | null;
           email?: string | null; name?: string | null; avatar_url?: string | null;
           lodge?: string | null; room?: string | null; acquired_via_qr?: string | null;
           favourites?: Json; loyalty_points?: number; last_order_at?: string | null; created_at?: string;
+          notification_prefs?: NotificationPrefs;
         };
         Update: Partial<Database["public"]["Tables"]["users"]["Insert"]>;
         Relationships: [
@@ -285,6 +305,57 @@ export interface Database {
             columns: ["subscription_slot_id"];
             isOneToOne: false;
             referencedRelation: "subscription_slots";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      push_subscriptions: {
+        Row: {
+          id: string; user_id: string; endpoint: string; p256dh: string; auth: string;
+          user_agent: string | null; created_at: string; last_seen_at: string;
+        };
+        Insert: {
+          id?: string; user_id: string; endpoint: string; p256dh: string; auth: string;
+          user_agent?: string | null; created_at?: string; last_seen_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["push_subscriptions"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      notifications: {
+        Row: {
+          id: string; user_id: string;
+          kind: "order_delivered" | "deal" | "menu_drop" | "loyalty" | "cart_reminder" | "plan_renew" | "plan_expired" | "referral" | "winback";
+          title: string; body: string; href: string | null; thumb_url: string | null;
+          order_id: string | null; read: boolean; created_at: string;
+        };
+        Insert: {
+          id?: string; user_id: string;
+          kind: "order_delivered" | "deal" | "menu_drop" | "loyalty" | "cart_reminder" | "plan_renew" | "plan_expired" | "referral" | "winback";
+          title: string; body: string; href?: string | null; thumb_url?: string | null;
+          order_id?: string | null; read?: boolean; created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notifications"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_order_id_fkey";
+            columns: ["order_id"];
+            isOneToOne: false;
+            referencedRelation: "orders";
             referencedColumns: ["id"];
           },
         ];

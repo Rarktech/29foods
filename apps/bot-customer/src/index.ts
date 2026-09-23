@@ -7,6 +7,7 @@ import { registerMenuHandlers } from "./handlers/menu";
 import { registerCheckoutHandlers } from "./handlers/checkout";
 import { registerFeedbackHandler } from "./handlers/feedback";
 import { subscribeToOrderUpdates } from "./realtime";
+import { subscribeToWebOrderPush } from "./push-orders";
 
 const token = process.env.TELEGRAM_CUSTOMER_BOT_TOKEN;
 if (!token) throw new Error("Missing required env var: TELEGRAM_CUSTOMER_BOT_TOKEN");
@@ -25,6 +26,7 @@ bot.catch((err) => {
 });
 
 subscribeToOrderUpdates(bot);
+subscribeToWebOrderPush();
 
 bot.start({
   onStart: () => console.log("29Foods customer bot is running (long polling)."),

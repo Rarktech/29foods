@@ -197,7 +197,9 @@ export function AccountView({
 
           <h3 className="mb-2.5 text-[14.5px] font-bold text-heading">Settings</h3>
           <div className="mb-[22px] flex flex-col overflow-hidden rounded-[14px] border border-border bg-card">
-            <SettingsRow label="Notifications" icon={<BellIcon />} />
+            <Link href="/notifications/settings" className="block">
+              <SettingsRow label="Notifications" icon={<BellIcon />} />
+            </Link>
             <a href="mailto:help@29foods.app" className="block">
               <SettingsRow label="Help & support" icon={<HelpIcon />} bordered />
             </a>

@@ -42,3 +42,45 @@ self.addEventListener("fetch", (event) => {
     }),
   );
 });
+
+// Web push — payload shape is { title, body, href?, thumbUrl?, tag?, orderId? } (see
+// packages/core/src/push.ts). `tag` is what makes the live order-progress notification
+// update in place through its four stages instead of stacking as separate alerts.
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch {
+    return;
+  }
+
+  const options = {
+    body: payload.body,
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    tag: payload.tag,
+    data: { href: payload.href || "/" },
+  };
+  if (payload.thumbUrl) options.image = payload.thumbUrl;
+
+  event.waitUntil(self.registration.showNotification(payload.title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const href = event.notification.data && event.notification.data.href ? event.notification.data.href : "/";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if (client.url.endsWith(href) && "focus" in client) return client.focus();
+      }
+      if (clients.length > 0 && "focus" in clients[0]) {
+        clients[0].navigate(href);
+        return clients[0].focus();
+      }
+      return self.clients.openWindow(href);
+    }),
+  );
+});

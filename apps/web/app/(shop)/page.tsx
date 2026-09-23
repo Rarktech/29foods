@@ -61,7 +61,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <button
+          <Link
+            href="/notifications"
             aria-label="Notifications"
             className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card"
           >
@@ -69,7 +70,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
-          </button>
+          </Link>
         </div>
       </div>
 
