@@ -169,7 +169,7 @@ export function SpinWheelView({ initialSpinsLeft }: { initialSpinsLeft: number }
           <Image
             src={pepperPointer}
             alt=""
-            className="pointer-events-none absolute left-1/2 top-[92px] z-[3] h-[52px] w-auto -translate-x-1/2 drop-shadow-[0_3px_4px_rgba(60,40,20,0.25)] dark:drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]"
+            className="pointer-events-none absolute left-1/2 top-[10px] z-[4] h-[260px] w-auto -translate-x-1/2 drop-shadow-[0_3px_4px_rgba(60,40,20,0.25)] dark:drop-shadow-[0_3px_4px_rgba(0,0,0,0.5)]"
             priority
           />
 

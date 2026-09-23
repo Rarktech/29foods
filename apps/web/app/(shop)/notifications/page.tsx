@@ -26,7 +26,12 @@ export default async function NotificationsPage() {
       .from("orders")
       .select("id, order_status, items, lodge, room, created_at, paid_at, delivered_at, assigned_rider_id")
       .eq("user_id", profile.id)
-      .not("order_status", "in", "(delivered,cancelled,placed)")
+      // Still-active orders, plus ones delivered in the last 30 minutes — so the hero
+      // card's final "Delivered" state is visible on a normal page load too, not only
+      // if you happen to have the page open at the exact moment it lands.
+      .or(
+        `and(order_status.neq.delivered,order_status.neq.cancelled,order_status.neq.placed),and(order_status.eq.delivered,delivered_at.gte.${new Date(Date.now() - 30 * 60_000).toISOString()})`,
+      )
       .order("created_at", { ascending: false }),
   ]);
 
@@ -41,8 +46,8 @@ export default async function NotificationsPage() {
 
     const [{ data: riders }, { data: events }] = await Promise.all([
       riderIds.length
-        ? service.from("riders").select("id, name").in("id", riderIds)
-        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+        ? service.from("riders").select("id, name, phone").in("id", riderIds)
+        : Promise.resolve({ data: [] as { id: string; name: string; phone: string | null }[] }),
       service
         .from("order_status_events")
         .select("order_id, to_status, applied_at, created_at")
@@ -52,7 +57,7 @@ export default async function NotificationsPage() {
         .order("created_at", { ascending: true }),
     ]);
 
-    const riderNameById = new Map((riders ?? []).map((r) => [r.id, r.name]));
+    const riderById = new Map((riders ?? []).map((r) => [r.id, { name: r.name, phone: r.phone }]));
 
     live = liveOrders.map((order) => {
       const stageEnteredAt: LiveOrder["stageEnteredAt"] = {
@@ -66,6 +71,7 @@ export default async function NotificationsPage() {
       }
 
       const items = order.items as { name: string; qty: number }[];
+      const rider = order.assigned_rider_id ? riderById.get(order.assigned_rider_id) : null;
       return {
         orderId: order.id,
         shortOrderId: `#29F-${order.id.slice(0, 4).toUpperCase()}`,
@@ -73,7 +79,8 @@ export default async function NotificationsPage() {
         dishSummary: items[0]?.name ?? "your order",
         lodge: order.lodge,
         room: order.room,
-        riderName: order.assigned_rider_id ? (riderNameById.get(order.assigned_rider_id) ?? null) : null,
+        riderName: rider?.name ?? null,
+        riderPhone: rider?.phone ?? null,
         createdAt: order.created_at,
         stageEnteredAt,
       };

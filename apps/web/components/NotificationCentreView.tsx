@@ -25,6 +25,7 @@ export interface LiveOrder {
   lodge: string;
   room: string | null;
   riderName: string | null;
+  riderPhone: string | null;
   createdAt: string;
   // When the order first entered each UI stage — drives the card's "time" header and,
   // for "delivered", the ETA pill's absolute clock time. Missing entries (a stage not
@@ -161,10 +162,8 @@ function LiveOrderCard({ live }: { live: LiveOrder }) {
   const etaCls = isDone ? "bg-success-bg text-success" : "bg-accent-tint text-accent";
 
   return (
-    <Link
-      href={`/order/${live.orderId}`}
-      className={`block overflow-hidden rounded-[20px] border bg-card p-[15px] pb-3.5 shadow-[0_4px_14px_rgba(60,40,20,0.08)] ${cardBorderCls}`}
-    >
+    <div className={`overflow-hidden rounded-[20px] border bg-card p-[15px] pb-3.5 shadow-[0_4px_14px_rgba(60,40,20,0.08)] ${cardBorderCls}`}>
+    <Link href={`/order/${live.orderId}`} className="block">
       <div className="mb-3 flex items-center gap-2">
         <img src="/icons/icon-192.png" alt="" className="h-[17px] w-[17px] shrink-0 rounded object-contain" />
         <span className="text-[10px] font-extrabold tracking-[0.08em] text-muted">29FOODS</span>
@@ -232,6 +231,7 @@ function LiveOrderCard({ live }: { live: LiveOrder }) {
         ))}
       </div>
 
+    </Link>
       {currentStage >= 1 && live.riderName && (
         <div className="mt-[13px] flex items-center gap-2.5 rounded-[14px] bg-[#F1E8DC] px-[11px] py-[9px] dark:bg-[#1F1F1F]">
           <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-accent">
@@ -241,12 +241,22 @@ function LiveOrderCard({ live }: { live: LiveOrder }) {
             <div className="text-[12.5px] font-extrabold text-heading">{live.riderName}</div>
             <div className="text-[10.5px] text-muted">{STAGE_RIDER_NOTE[currentStage]}</div>
           </div>
-          <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-success-bg">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--color-success))" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" /></svg>
-          </span>
+          {live.riderPhone ? (
+            <a
+              href={`tel:${live.riderPhone}`}
+              aria-label={`Call ${live.riderName}`}
+              className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-success-bg"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--color-success))" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" /></svg>
+            </a>
+          ) : (
+            <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full bg-success-bg">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--color-success))" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" /></svg>
+            </span>
+          )}
         </div>
       )}
-    </Link>
+    </div>
   );
 }
 
@@ -279,6 +289,21 @@ export function NotificationCentreView({ initialNotifications, initialLive }: { 
                 : o,
             ),
           );
+
+          // riders is admin-only RLS — the client can't see a newly-assigned rider's
+          // name/phone from the realtime payload itself, so backfill it once the order
+          // reaches a stage that should have one.
+          if (STAGE_INDEX[status] >= 1) {
+            fetch(`/api/orders/${orderId}/rider`)
+              .then((r) => r.json())
+              .then((data: { rider?: { name: string; phone: string | null } | null }) => {
+                if (!data.rider) return;
+                setLiveOrders((prev) =>
+                  prev.map((o) => (o.orderId === orderId ? { ...o, riderName: data.rider!.name, riderPhone: data.rider!.phone } : o)),
+                );
+              })
+              .catch(() => {});
+          }
         })
         .subscribe(),
     );
