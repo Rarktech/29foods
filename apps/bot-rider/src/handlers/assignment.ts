@@ -38,10 +38,12 @@ export function subscribeToAssignments(bot: Bot<Context>) {
 
         const { data: user } = await supabase
           .from("orders")
-          .select("user_id, users(phone)")
+          .select("user_id, users(name, phone)")
           .eq("id", after.id)
           .single();
-        const phone = user && Array.isArray(user.users) ? user.users[0]?.phone : (user?.users as { phone: string | null } | null)?.phone;
+        const customer = user && Array.isArray(user.users) ? user.users[0] : (user?.users as { name: string | null; phone: string | null } | null);
+        const phone = customer?.phone;
+        const customerName = customer?.name?.trim();
 
         const itemsText = after.items.map((i) => `${i.qty}x ${i.name}`).join(", ");
         const clientOpId = randomUUID();
@@ -49,7 +51,7 @@ export function subscribeToAssignments(bot: Bot<Context>) {
 
         await bot.api.sendMessage(
           rider.telegram_id,
-          `🔔 New delivery assigned\n${itemsText}\n📍 ${after.lodge}${after.room ? `, ${after.room}` : ""}\n` +
+          `🔔 New delivery assigned\n${customerName ? `👤 ${customerName}\n` : ""}${itemsText}\n📍 ${after.lodge}${after.room ? `, ${after.room}` : ""}\n` +
             `${phone ? `☎️ ${phone} · ` : ""}${after.payment_status === "paid" ? "PAID ✅" : ""}`,
           { reply_markup: keyboard },
         );

@@ -1,9 +1,12 @@
 import type { Bot, Context } from "grammy";
-import { formatKobo } from "@29foods/core";
 import { getServiceClient } from "../supabase";
 import { orderActionKeyboard } from "../handlers/new-order";
+import { buildOrderCard } from "../order-card";
 
 const ADMIN_CHAT_ID = process.env.ADMIN_TELEGRAM_CHAT_ID;
+
+// Guards against a Realtime reconnect replaying the same "just paid" event.
+const announced = new Set<string>();
 
 /** Pings the admin chat the moment an order is paid — this is the "🔔 New order" flow from the PRD. */
 export function subscribeToNewOrders(bot: Bot<Context>) {
@@ -17,25 +20,19 @@ export function subscribeToNewOrders(bot: Bot<Context>) {
       { event: "UPDATE", schema: "public", table: "orders" },
       async (payload) => {
         const before = payload.old as { payment_status?: string };
-        const after = payload.new as {
-          id: string;
-          items: { name: string; qty: number }[];
-          lodge: string;
-          room: string | null;
-          total: number;
-        };
+        const after = payload.new as { id: string; payment_status: string };
 
-        const justPaid = before.payment_status !== "paid" && (payload.new as { payment_status: string }).payment_status === "paid";
-        if (!justPaid) return;
+        const justPaid = before.payment_status !== "paid" && after.payment_status === "paid";
+        if (!justPaid || announced.has(after.id)) return;
+        announced.add(after.id);
 
-        const itemsText = after.items.map((i) => `${i.qty}x ${i.name}`).join(", ");
-        const shortId = after.id.slice(0, 8);
-
-        await bot.api.sendMessage(
-          ADMIN_CHAT_ID,
-          `🔔 New order #${shortId}\n${itemsText}\n${after.lodge}${after.room ? `, ${after.room}` : ""} · ${formatKobo(after.total)} · PAID ✅`,
-          { reply_markup: orderActionKeyboard(after.id, "new") },
-        );
+        try {
+          const card = await buildOrderCard(after.id);
+          if (!card) return;
+          await bot.api.sendMessage(ADMIN_CHAT_ID, card, { parse_mode: "HTML", reply_markup: orderActionKeyboard(after.id, "new") });
+        } catch (err) {
+          console.error("new order ping failed:", err);
+        }
       },
     )
     .subscribe();

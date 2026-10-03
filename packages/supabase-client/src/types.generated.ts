@@ -106,11 +106,13 @@ export interface Database {
           id: string; name: string; telegram_id: number | null; phone: string | null;
           cycle_status: "at_base" | "heading_back" | "out_delivering" | "offline";
           assigned_bike: string | null; last_location: Json | null; created_at: string;
+          invite_code: string | null; invite_expires_at: string | null; is_active: boolean;
         };
         Insert: {
           id?: string; name: string; telegram_id?: number | null; phone?: string | null;
           cycle_status?: "at_base" | "heading_back" | "out_delivering" | "offline";
           assigned_bike?: string | null; last_location?: Json | null; created_at?: string;
+          invite_code?: string | null; invite_expires_at?: string | null; is_active?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["riders"]["Insert"]>;
         Relationships: [];
@@ -451,6 +453,10 @@ export interface Database {
       complete_wallet_topup: {
         Args: { p_tx_ref: string; p_tx_id: string };
         Returns: Database["public"]["Tables"]["wallet_transactions"]["Row"];
+      };
+      claim_rider_invite: {
+        Args: { p_code: string; p_telegram_id: number };
+        Returns: Database["public"]["Tables"]["riders"]["Row"];
       };
       link_phone_merge: {
         Args: { p_current_user_id: string; p_phone: string };

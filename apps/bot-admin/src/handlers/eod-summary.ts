@@ -18,12 +18,14 @@ export async function sendDailySummary(bot: Bot<Context>) {
 
   const { data: orders } = await supabase
     .from("orders")
-    .select("total, items")
+    .select("total, items, discount")
     .eq("payment_status", "paid")
     .gte("created_at", startOfDay.toISOString());
 
   const orderCount = orders?.length ?? 0;
   const revenue = (orders ?? []).reduce((sum, o) => sum + o.total, 0);
+  const discounted = (orders ?? []).filter((o) => o.discount > 0);
+  const discountTotal = discounted.reduce((sum, o) => sum + o.discount, 0);
 
   const itemCounts = new Map<string, number>();
   for (const order of orders ?? []) {
@@ -41,6 +43,7 @@ export async function sendDailySummary(bot: Bot<Context>) {
   const lines = [
     `📊 Today: ${orderCount} orders · ${formatKobo(revenue)}`,
     topItem ? `Top: ${topItem[0]} (${topItem[1]})` : null,
+    discounted.length > 0 ? `🎡 Discounts given: ${formatKobo(discountTotal)} across ${discounted.length} order${discounted.length === 1 ? "" : "s"} (/spins for who)` : null,
     soldOutNames.length > 0 ? `Sold out: ${soldOutNames.join(", ")}` : "Nothing sold out today 🎉",
   ].filter(Boolean);
 
