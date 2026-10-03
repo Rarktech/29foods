@@ -7,6 +7,7 @@ export * from "./inventory";
 export * from "./orders";
 export * from "./rider-assignment";
 export * from "./rider-invites";
+export * from "./compact-id";
 export * from "./payments";
 export * from "./qr";
 export * from "./plans";

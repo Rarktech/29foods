@@ -13,7 +13,8 @@ export function orderActionKeyboard(orderId: string, state: OrderBotState): Inli
   } else if (state === "preparing") {
     keyboard.text("🍽️ Mark ready", `order:ready:${orderId}`);
   } else if (state === "ready") {
-    keyboard.text("🏍️ Assign rider", `order:assign:${orderId}`);
+    // Riders are assigned automatically on "ready" (rider bot dispatcher); this is the override.
+    keyboard.text("🏍️ Assign manually", `order:assign:${orderId}`);
   }
   return keyboard;
 }
@@ -46,7 +47,7 @@ export function registerNewOrderHandlers(bot: Bot<Context>) {
     const { data: events } = await supabase.from("order_status_events").select("id").eq("order_id", orderId).eq("applied", false);
     for (const event of events ?? []) await applyPendingStatusEvent(supabase, event.id);
 
-    await ctx.answerCallbackQuery({ text: "Marked ready." });
+    await ctx.answerCallbackQuery({ text: "Marked ready, finding a rider…" });
     await ctx.editMessageReplyMarkup({ reply_markup: orderActionKeyboard(orderId, "ready") });
   });
 }

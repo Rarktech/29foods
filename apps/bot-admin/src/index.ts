@@ -8,6 +8,7 @@ import { registerRiderHandlers } from "./handlers/riders";
 import { registerSpinHandlers } from "./handlers/spins";
 import { sendDailySummary } from "./handlers/eod-summary";
 import { subscribeToNewOrders } from "./realtime/order-listener";
+import { watchDispatch } from "./realtime/dispatch-watch";
 
 const token = process.env.TELEGRAM_ADMIN_BOT_TOKEN;
 if (!token) throw new Error("Missing required env var: TELEGRAM_ADMIN_BOT_TOKEN");
@@ -39,7 +40,11 @@ bot.catch((err) => {
   console.error("Unhandled bot error:", err.error);
 });
 
+// Last line of defence for a long-running process: log and keep serving instead of exiting.
+process.on("unhandledRejection", (err) => console.error("Unhandled rejection:", err));
+
 subscribeToNewOrders(bot);
+watchDispatch(bot);
 
 // 22:00 server time daily. Set TZ=Africa/Lagos on the server (deploy/ecosystem.config.cjs
 // does) so this lands at 10pm WAT rather than whatever timezone the machine defaults to.

@@ -1,6 +1,7 @@
 import { Bot, InlineKeyboard, type Context } from "grammy";
 import { claimRiderInvite, RiderInviteError } from "@29foods/core";
 import { getServiceClient } from "../supabase";
+import { dispatchWaitingOrders } from "../dispatcher";
 
 export function registerShiftHandlers(bot: Bot<Context>) {
   bot.command("start", async (ctx) => {
@@ -42,15 +43,47 @@ export function registerShiftHandlers(bot: Bot<Context>) {
 
   bot.callbackQuery("rider:shift:at_base", async (ctx) => {
     await setCycleStatus(ctx, "at_base");
-    await ctx.answerCallbackQuery({ text: "You're on shift — at base." });
-    await ctx.editMessageText("🏍️ You're available at base. New deliveries will come through here.");
+    await ctx.answerCallbackQuery({ text: "You're on shift, at base." });
+    await ctx.editMessageText("🏍️ You're on shift at base. New deliveries come through here automatically.", { reply_markup: offShiftKeyboard() });
+    void dispatchWaitingOrders();
   });
 
   bot.callbackQuery("rider:shift:back_at_base", async (ctx) => {
     await setCycleStatus(ctx, "at_base");
     await ctx.answerCallbackQuery({ text: "Welcome back to base." });
-    await ctx.editMessageText("🏍️ Back at base — ready for the next drop.");
+    await ctx.editMessageText("🏍️ Back at base, ready for the next drop.", { reply_markup: offShiftKeyboard() });
+    void dispatchWaitingOrders();
   });
+
+  // With automatic dispatch, going off shift is what stops new orders arriving.
+  bot.command("off", async (ctx) => goOffShift(ctx));
+  bot.callbackQuery("rider:shift:offline", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
+    await goOffShift(ctx);
+  });
+}
+
+function offShiftKeyboard() {
+  return new InlineKeyboard().text("🔴 Go off shift", "rider:shift:offline");
+}
+
+async function goOffShift(ctx: Context) {
+  const supabase = getServiceClient();
+  const { data: rider } = await supabase.from("riders").select("id").eq("telegram_id", ctx.from!.id).maybeSingle();
+  if (!rider) return;
+  const { count } = await supabase
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("assigned_rider_id", rider.id)
+    .in("order_status", ["ready", "out_for_delivery"]);
+  await setCycleStatus(ctx, "offline");
+  await ctx.reply(
+    count
+      ? `🔴 You're off shift, no new orders will come to you. You still have ${count} order${count === 1 ? "" : "s"} to finish, so tap the buttons on ${count === 1 ? "it" : "them"} as usual.`
+      : "🔴 You're off shift. No new orders will come to you until you tap “I'm available” again.",
+    { reply_markup: new InlineKeyboard().text("🏍️ I'm available", "rider:shift:at_base") },
+  );
 }
 
 async function setCycleStatus(ctx: Context, status: "at_base" | "heading_back" | "out_delivering" | "offline") {

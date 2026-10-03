@@ -8,8 +8,16 @@ export function registerStatusHandlers(bot: Bot<Context>) {
     const supabase = getServiceClient();
     const { data: rider } = await supabase.from("riders").select("id").eq("telegram_id", ctx.from!.id).maybeSingle();
 
-    await recordAndApply(orderId!, "out_for_delivery", rider?.id ?? null, clientOpId!);
-    if (rider) await supabase.from("riders").update({ cycle_status: "out_delivering" }).eq("id", rider.id);
+    // A reassigned order's old message still has its buttons — only the current rider can pick it up.
+    const { data: order } = await supabase.from("orders").select("assigned_rider_id").eq("id", orderId!).maybeSingle();
+    if (!rider || order?.assigned_rider_id !== rider.id) {
+      await ctx.answerCallbackQuery({ text: "This order has been moved to another rider." });
+      await ctx.editMessageReplyMarkup({ reply_markup: undefined }).catch(() => {});
+      return;
+    }
+
+    await recordAndApply(orderId!, "out_for_delivery", rider.id, clientOpId!);
+    await supabase.from("riders").update({ cycle_status: "out_delivering" }).eq("id", rider.id);
 
     await ctx.answerCallbackQuery({ text: "Marked picked up." });
     const keyboard = new InlineKeyboard().text("✅ Delivered", `rider:delivered:${orderId}:${clientOpId}`);

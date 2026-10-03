@@ -43,6 +43,9 @@ bot.catch((err) => {
   console.error("Unhandled bot error:", err.error);
 });
 
+// Last line of defence for a long-running process: log and keep serving instead of exiting.
+process.on("unhandledRejection", (err) => console.error("Unhandled rejection:", err));
+
 subscribeToOrderUpdates(bot);
 subscribeToWebOrderPush();
 startSweeper(bot);

@@ -12,6 +12,8 @@ import {
   payOrderFullyFromWallet,
   countRecentTransferPayments,
   isKitchenOpen,
+  compactId,
+  expandId,
   type CartItem,
   type AppliedSpinWin,
 } from "@29foods/core";
@@ -38,10 +40,11 @@ export function registerCheckoutHandlers(bot: Bot<MyContext>) {
     await placeOrder(ctx, mode === "wallet" ? "wallet" : "link");
   });
 
-  bot.callbackQuery(/^swap:(.+):(.+)$/, async (ctx) => {
+  bot.callbackQuery(/^swap:([\w-]{22}):([\w-]{22}|rm)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     await clearButtons(ctx);
-    const [, oldId, newId] = ctx.match;
+    const oldId = expandId(ctx.match[1]!);
+    const newId = ctx.match[2] === "rm" ? "rm" : expandId(ctx.match[2]!);
     const line = ctx.session.cart.find((l) => l.menuItemId === oldId);
     ctx.session.cart = ctx.session.cart.filter((l) => l.menuItemId !== oldId);
     if (newId !== "rm") {
@@ -168,8 +171,9 @@ export async function showSummary(ctx: MyContext) {
 
 async function offerSwap(ctx: MyContext, soldOut: CartLine, alternative: MenuEntry | null) {
   const keyboard = new InlineKeyboard();
-  if (alternative) keyboard.text(`Switch to ${alternative.name}`, `swap:${soldOut.menuItemId}:${alternative.id}`).row();
-  keyboard.text(alternative ? "Just remove it" : "Remove it", `swap:${soldOut.menuItemId}:rm`).row().text("🍚 See the menu", "menu:home");
+  // Compact ids: two full UUIDs would overflow Telegram's 64-byte callback_data limit.
+  if (alternative) keyboard.text(`Switch to ${alternative.name}`, `swap:${compactId(soldOut.menuItemId)}:${compactId(alternative.id)}`).row();
+  keyboard.text(alternative ? "Just remove it" : "Remove it", `swap:${compactId(soldOut.menuItemId)}:rm`).row().text("🍚 See the menu", "menu:home");
   await ctx.reply(copy.soldOutMidOrder(soldOut.name, alternative?.name ?? null), { reply_markup: keyboard });
 }
 
