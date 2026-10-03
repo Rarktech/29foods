@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { verifyWebhookSignature, verifyTransaction, markOrderPaid, markSubscriptionPaid } from "@29foods/core";
+import { verifyWebhookSignature, verifyTransaction, markOrderPaid, markSubscriptionPaid, completeWalletTopup } from "@29foods/core";
 
 // Flutterwave webhook. Never trust the request body's `status`/`amount` fields directly —
 // verify the signature header, then re-verify the transaction against Flutterwave's API
@@ -39,10 +39,12 @@ export async function POST(request: Request) {
   const service = getSupabaseServiceClient();
   const paidAmountKobo = Math.round(verified.amountNaira * 100);
 
-  const { data: order } = await service.from("orders").select("id, total").eq("flutterwave_tx_ref", txRef).maybeSingle();
+  const { data: order } = await service.from("orders").select("id, total, wallet_paid").eq("flutterwave_tx_ref", txRef).maybeSingle();
   if (order) {
-    if (paidAmountKobo !== order.total) {
-      console.error("[flw-webhook] amount mismatch", { orderId: order.id, txRef, paidAmountKobo, orderTotal: order.total });
+    // Part of a bot order may already be held from the customer's wallet — Flutterwave only charges the rest.
+    const amountDue = order.total - order.wallet_paid;
+    if (paidAmountKobo !== amountDue) {
+      console.error("[flw-webhook] amount mismatch", { orderId: order.id, txRef, paidAmountKobo, amountDue });
       return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
     }
     await markOrderPaid(service, order.id, transactionId);
@@ -63,6 +65,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
-  console.error("[flw-webhook] no order or subscription found for tx_ref", txRef);
-  return NextResponse.json({ error: "No order or subscription found for tx_ref" }, { status: 404 });
+  const { data: topup } = await service
+    .from("wallet_transactions")
+    .select("id, amount")
+    .eq("flutterwave_tx_ref", txRef)
+    .eq("kind", "topup")
+    .maybeSingle();
+  if (topup) {
+    if (paidAmountKobo !== topup.amount) {
+      console.error("[flw-webhook] amount mismatch", { walletTxId: topup.id, txRef, paidAmountKobo, amount: topup.amount });
+      return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
+    }
+    await completeWalletTopup(service, txRef, transactionId);
+    return NextResponse.json({ received: true });
+  }
+
+  console.error("[flw-webhook] no order, subscription or wallet top-up found for tx_ref", txRef);
+  return NextResponse.json({ error: "No order, subscription or wallet top-up found for tx_ref" }, { status: 404 });
 }

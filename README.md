@@ -6,7 +6,7 @@ Campus food ordering — one Supabase backend, five front doors (customer web, c
 
 ```
 apps/web            Next.js — customer app (/) + admin dashboard (/admin)
-apps/bot-customer    Telegram — customer ordering (not yet built)
+apps/bot-customer    Telegram — customer ordering (conversational flow, wallet, spin, status pings)
 apps/bot-admin       Telegram — order management (not yet built)
 apps/bot-rider       Telegram — delivery status (not yet built)
 packages/core        Shared business logic (identity, inventory, orders, rider assignment, payments, QR)
@@ -27,7 +27,8 @@ supabase/            SQL migrations + seed data
 3. **Flutterwave** — create a (test) account, copy the public/secret keys into `.env.local`, and set a webhook secret hash in the Flutterwave dashboard matching `FLUTTERWAVE_WEBHOOK_HASH`.
 4. **Run the web app**: `pnpm --filter @29foods/web dev` → http://localhost:3000
 5. **Telegram bots** — create 3 bots via [@BotFather](https://t.me/BotFather) (customer, admin, rider), copy each token into the relevant `apps/bot-*/.env` (see `.env.example`). Message the admin bot once from the account that should receive pings, then get that chat's id (e.g. via `https://api.telegram.org/bot<ADMIN_BOT_TOKEN>/getUpdates`) for `ADMIN_TELEGRAM_CHAT_ID`. Run locally with `pnpm --filter @29foods/bot-customer dev` (and `bot-admin`, `bot-rider` likewise) — each is a long-polling process, no webhook/tunnel needed for local dev.
-6. **Riders** — rider rows aren't self-service; insert them directly (Supabase dashboard or a script) with the rider's `telegram_id` once they've messaged the rider bot once so you have that id.
+6. **Customer bot flow** — lodge QR stickers link to `https://t.me/<customer-bot-username>?start=<qr_code>` (the `qr_codes.qr_code` value), which greets by lodge name and pre-fills the lodge. Flutterwave redirects back into the chat via `?start=paid_<orderId>` / `?start=wallet`, so no web page is involved for Telegram customers. Kitchen hours (10am–9pm WAT) live in `packages/core/src/hours.ts`; hero dishes are `menu_items.is_hero`. Sessions persist in the `bot_sessions` table, so restarting the bot doesn't lose anyone's cart. Wallet top-ups and partial-wallet orders are confirmed by the same Flutterwave webhook in `apps/web`, so redeploy the web app after webhook changes.
+7. **Riders** — rider rows aren't self-service; insert them directly (Supabase dashboard or a script) with the rider's `telegram_id` once they've messaged the rider bot once so you have that id.
 
 ## Deploying
 

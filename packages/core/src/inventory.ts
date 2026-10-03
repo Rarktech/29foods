@@ -20,6 +20,12 @@ export class OutOfStockError extends Error {
   }
 }
 
+export class InsufficientWalletError extends Error {
+  constructor() {
+    super("INSUFFICIENT_WALLET");
+  }
+}
+
 /**
  * Atomically reserves stock for every line item and creates the order in one
  * transaction (see create_order_with_reservation in the schema migration) —
@@ -37,6 +43,13 @@ export async function createOrderWithReservation(
     channel: "web" | "telegram";
     sourceQr: string | null;
     txRef: string;
+    /** Kobo off the total (e.g. a spin win). */
+    discount?: number;
+    /** Kobo held from the user's wallet at creation; refunded if the order is released. */
+    walletAmount?: number;
+    spinWinId?: string | null;
+    /** Kitchen note, e.g. a remembered "no pepper". */
+    note?: string | null;
   },
 ): Promise<OrderRow> {
   const { data, error } = await supabase.rpc("create_order_with_reservation", {
@@ -48,6 +61,10 @@ export async function createOrderWithReservation(
     p_channel: params.channel,
     p_source_qr: params.sourceQr,
     p_tx_ref: params.txRef,
+    p_discount: params.discount ?? 0,
+    p_wallet_amount: params.walletAmount ?? 0,
+    p_spin_win_id: params.spinWinId ?? null,
+    p_note: params.note ?? null,
   });
 
   if (error) {
@@ -55,6 +72,7 @@ export async function createOrderWithReservation(
       const menuItemId = error.message.split("OUT_OF_STOCK: ")[1]?.trim() ?? "unknown";
       throw new OutOfStockError(menuItemId);
     }
+    if (error.message.includes("INSUFFICIENT_WALLET")) throw new InsufficientWalletError();
     throw error;
   }
   return data;

@@ -11,6 +11,9 @@ export * from "./qr";
 export * from "./plans";
 export * from "./subscriptions";
 export * from "./spin";
+export * from "./wallet";
+export * from "./hours";
+export * from "./personalization";
 // push.ts is deliberately NOT re-exported here — it imports the Node-only `web-push`
 // package (net/tls), and this barrel is reachable from client components (e.g. via
 // formatKobo). Import server-only push helpers from "@29foods/core/push" instead.

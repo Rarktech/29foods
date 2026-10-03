@@ -50,6 +50,8 @@ export interface Database {
           lodge: string | null; room: string | null; acquired_via_qr: string | null;
           favourites: Json; loyalty_points: number; last_order_at: string | null; created_at: string;
           notification_prefs: NotificationPrefs;
+          wallet_balance: number; broadcast_opt_out: boolean; dietary_note: string | null;
+          open_reminder_requested: boolean;
         };
         Insert: {
           id?: string; auth_uid?: string | null; telegram_id?: number | null; phone?: string | null;
@@ -57,6 +59,8 @@ export interface Database {
           lodge?: string | null; room?: string | null; acquired_via_qr?: string | null;
           favourites?: Json; loyalty_points?: number; last_order_at?: string | null; created_at?: string;
           notification_prefs?: NotificationPrefs;
+          wallet_balance?: number; broadcast_opt_out?: boolean; dietary_note?: string | null;
+          open_reminder_requested?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["users"]["Insert"]>;
         Relationships: [
@@ -73,10 +77,12 @@ export interface Database {
         Row: {
           id: string; name: string; category: "rice" | "protein" | "drink" | "snack" | "swallow"; price: number;
           is_available: boolean; image_url: string | null; created_at: string; updated_at: string;
+          is_hero: boolean;
         };
         Insert: {
           id?: string; name: string; category: "rice" | "protein" | "drink" | "snack" | "swallow"; price: number;
           is_available?: boolean; image_url?: string | null; created_at?: string; updated_at?: string;
+          is_hero?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["menu_items"]["Insert"]>;
         Relationships: [];
@@ -118,6 +124,7 @@ export interface Database {
           assigned_rider_id: string | null; source_qr: string | null; channel: "web" | "telegram";
           flutterwave_tx_ref: string | null; flutterwave_tx_id: string | null; expires_at: string | null;
           subscription_id: string | null;
+          discount: number; wallet_paid: number; note: string | null; spin_win_id: string | null;
           created_at: string; paid_at: string | null; delivered_at: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["orders"]["Row"]> & {
@@ -364,12 +371,12 @@ export interface Database {
         Row: {
           id: string; user_id: string; prize_key: string; prize_label: string; is_try_again: boolean;
           won_at: string; expires_at: string | null; redeemed: boolean; redeemed_at: string | null;
-          redeemed_order_id: string | null; created_at: string;
+          redeemed_order_id: string | null; created_at: string; order_id: string | null;
         };
         Insert: {
           id?: string; user_id: string; prize_key: string; prize_label: string; is_try_again?: boolean;
           won_at?: string; expires_at?: string | null; redeemed?: boolean; redeemed_at?: string | null;
-          redeemed_order_id?: string | null; created_at?: string;
+          redeemed_order_id?: string | null; created_at?: string; order_id?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["spin_wins"]["Insert"]>;
         Relationships: [
@@ -389,6 +396,34 @@ export interface Database {
           },
         ];
       };
+      wallet_transactions: {
+        Row: {
+          id: string; user_id: string; amount: number; kind: "topup" | "order_payment" | "refund";
+          order_id: string | null; flutterwave_tx_ref: string | null; flutterwave_tx_id: string | null;
+          status: "pending" | "completed" | "failed"; created_at: string; completed_at: string | null;
+        };
+        Insert: {
+          id?: string; user_id: string; amount: number; kind: "topup" | "order_payment" | "refund";
+          order_id?: string | null; flutterwave_tx_ref?: string | null; flutterwave_tx_id?: string | null;
+          status?: "pending" | "completed" | "failed"; created_at?: string; completed_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["wallet_transactions"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      bot_sessions: {
+        Row: { key: string; value: Json; updated_at: string };
+        Insert: { key: string; value: Json; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["bot_sessions"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -396,6 +431,7 @@ export interface Database {
         Args: {
           p_user_id: string; p_items: Json; p_lodge: string; p_room: string | null;
           p_delivery_fee: number; p_channel: string; p_source_qr: string | null; p_tx_ref: string;
+          p_discount?: number; p_wallet_amount?: number; p_spin_win_id?: string | null; p_note?: string | null;
         };
         Returns: Database["public"]["Tables"]["orders"]["Row"];
       };
@@ -403,6 +439,18 @@ export interface Database {
       mark_order_paid: {
         Args: { p_order_id: string; p_tx_id: string };
         Returns: Database["public"]["Tables"]["orders"]["Row"];
+      };
+      pay_order_fully_from_wallet: {
+        Args: { p_order_id: string };
+        Returns: Database["public"]["Tables"]["orders"]["Row"];
+      };
+      create_wallet_topup: {
+        Args: { p_user_id: string; p_amount: number; p_tx_ref: string };
+        Returns: Database["public"]["Tables"]["wallet_transactions"]["Row"];
+      };
+      complete_wallet_topup: {
+        Args: { p_tx_ref: string; p_tx_id: string };
+        Returns: Database["public"]["Tables"]["wallet_transactions"]["Row"];
       };
       link_phone_merge: {
         Args: { p_current_user_id: string; p_phone: string };
