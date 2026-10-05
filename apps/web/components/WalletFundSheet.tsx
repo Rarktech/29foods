@@ -2,7 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { formatKobo, parseNairaAmount, WALLET_TOPUP_PRESETS_KOBO, WALLET_TOPUP_MIN_KOBO, WALLET_TOPUP_MAX_KOBO } from "@29foods/core";
+import {
+  formatKobo,
+  formatNairaInput,
+  parseNairaAmount,
+  WALLET_TOPUP_PRESETS_KOBO,
+  WALLET_TOPUP_MIN_KOBO,
+  WALLET_TOPUP_MAX_KOBO,
+} from "@29foods/core";
+
+/** Kobo → the amount field's text, e.g. 520050 → "5,200.50". */
+function koboToInput(kobo: number): string {
+  return formatNairaInput(kobo % 100 === 0 ? String(kobo / 100) : (kobo / 100).toFixed(2));
+}
 import { FUNDING_METHODS, type FundingMethodId, type TopupReturnPath } from "@/lib/funding-methods";
 
 /**
@@ -32,7 +44,8 @@ export function WalletFundSheet({
     if (!open) return;
     setError(null);
     setSubmitting(false);
-    if (suggestedAmountKobo) setAmountText(String(Math.ceil(Math.max(suggestedAmountKobo, WALLET_TOPUP_MIN_KOBO) / 100)));
+    // Exactly the shortfall, kobo included, so the top-up covers the order to the kobo.
+    if (suggestedAmountKobo) setAmountText(koboToInput(Math.max(suggestedAmountKobo, WALLET_TOPUP_MIN_KOBO)));
   }, [open, suggestedAmountKobo]);
 
   if (!open) return null;
@@ -81,7 +94,7 @@ export function WalletFundSheet({
               <button
                 key={preset}
                 type="button"
-                onClick={() => setAmountText(String(preset / 100))}
+                onClick={() => setAmountText(koboToInput(preset))}
                 className="flex-1 rounded-full px-2 py-2 text-[12.5px] font-bold"
                 style={{
                   background: active ? "rgb(var(--color-accent))" : "rgb(var(--color-bg))",
@@ -98,7 +111,7 @@ export function WalletFundSheet({
           <span className="text-[15px] font-extrabold text-muted">₦</span>
           <input
             value={amountText}
-            onChange={(e) => setAmountText(e.target.value)}
+            onChange={(e) => setAmountText(formatNairaInput(e.target.value))}
             inputMode="decimal"
             placeholder="Or type an amount"
             className="w-full border-none bg-transparent text-[15px] font-bold text-heading outline-none"

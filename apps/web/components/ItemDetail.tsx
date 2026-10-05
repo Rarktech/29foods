@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useCart } from "@/lib/cart-context";
 import { formatKobo } from "@/lib/format";
 import { getMenuImage } from "@/lib/menu-images";
-import { PROTEIN_ADDONS } from "@/lib/protein-addons";
+import { PROTEIN_ADDONS, proteinKey, proteinsLabel, proteinsPrice } from "@/lib/protein-addons";
 import type { MenuItemWithStock } from "@/components/MenuGrid";
 
 interface UpsellItem {
@@ -28,13 +28,18 @@ export function ItemDetail({
   const router = useRouter();
   const { baskets, addItem, addBasket, renameBasket } = useCart();
 
-  const [proteinId, setProteinId] = useState<string | null>(item.category === "rice" ? (PROTEIN_ADDONS[0]?.id ?? null) : null);
+  // Any number of proteins (including none); the first is pre-ticked on rice, as before.
+  const [proteinIds, setProteinIds] = useState<string[]>(item.category === "rice" && PROTEIN_ADDONS[0] ? [PROTEIN_ADDONS[0].id] : []);
   const [qty, setQty] = useState(1);
   const [addUpsell, setAddUpsell] = useState(false);
   const [basketId, setBasketId] = useState<string | null>(baskets[0]?.id ?? null);
 
-  const protein = proteinId ? PROTEIN_ADDONS.find((p) => p.id === proteinId) ?? null : null;
-  const unitPrice = item.price + (protein?.priceKobo ?? 0);
+  const proteins = PROTEIN_ADDONS.filter((p) => proteinIds.includes(p.id));
+  const unitPrice = item.price + proteinsPrice(proteins);
+
+  function toggleProtein(id: string) {
+    setProteinIds((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
+  }
   const soldOut = !item.isAvailable || item.stockCount <= 0;
   const staticImage = getMenuImage(item.name);
   const activeBasket = baskets.find((b) => b.id === basketId);
@@ -47,8 +52,8 @@ export function ItemDetail({
       {
         menuItemId: item.id,
         name: item.name,
-        addonId: protein?.id,
-        addonLabel: protein?.label,
+        addonId: proteinKey(proteinIds),
+        addonLabel: proteins.length > 0 ? proteinsLabel(proteins) : undefined,
         unitPrice,
         imageUrl: item.imageUrl,
         basketId: targetBasketId,
@@ -122,14 +127,21 @@ export function ItemDetail({
 
         {item.category === "rice" && (
           <>
-            <h3 className="mb-3 text-[15px] font-bold text-heading">Choose your protein</h3>
+            <div className="mb-3 flex items-baseline justify-between">
+              <h3 className="text-[15px] font-bold text-heading">Choose your proteins</h3>
+              <span className="text-[11.5px] font-semibold text-muted">
+                {proteinIds.length > 1 ? `${proteinIds.length} selected` : "Pick as many as you like"}
+              </span>
+            </div>
             <div className="mb-[22px] flex flex-col gap-2.5">
               {PROTEIN_ADDONS.map((option) => {
-                const active = proteinId === option.id;
+                const active = proteinIds.includes(option.id);
                 return (
                   <button
                     key={option.id}
-                    onClick={() => setProteinId(active ? null : option.id)}
+                    role="checkbox"
+                    aria-checked={active}
+                    onClick={() => toggleProtein(option.id)}
                     className="flex items-center justify-between rounded-[14px] px-4 py-3.5"
                     style={{
                       border: active ? "1.5px solid rgb(var(--color-accent))" : "1.5px solid rgb(var(--color-border))",
@@ -137,10 +149,21 @@ export function ItemDetail({
                     }}
                   >
                     <div className="flex items-center gap-2.5">
+                      {/* Square tick-box, not a radio circle: several can be on at once. */}
                       <span
-                        className="h-[18px] w-[18px] shrink-0 rounded-full"
-                        style={{ border: active ? "5px solid rgb(var(--color-accent))" : "2px solid var(--muted-border-strong)" }}
-                      />
+                        className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px]"
+                        style={
+                          active
+                            ? { background: "rgb(var(--color-accent))" }
+                            : { border: "2px solid var(--muted-border-strong)" }
+                        }
+                      >
+                        {active && (
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 6 9 17l-5-5" />
+                          </svg>
+                        )}
+                      </span>
                       <span className={`text-[13.5px] ${active ? "font-bold text-heading" : "font-semibold text-body"}`}>{option.label}</span>
                     </div>
                     <span className={`text-[13px] font-bold ${active ? "text-heading" : "text-body"}`}>+{formatKobo(option.priceKobo)}</span>

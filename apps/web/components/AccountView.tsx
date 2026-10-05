@@ -225,14 +225,6 @@ export function AccountView({
             ))}
           </div>
 
-          <div className="mb-2.5 flex items-center justify-between">
-            <h3 className="text-[14.5px] font-bold text-heading">Payment</h3>
-          </div>
-          <div className="mb-[22px] flex items-center gap-3 rounded-[14px] border border-border bg-card px-3.5 py-3">
-            <div className="flex h-[22px] w-8 shrink-0 items-center justify-center rounded-[5px] bg-heading text-[9px] font-extrabold text-[#FFB25C]">PAY</div>
-            <span className="flex-grow text-[13px] font-bold text-heading">Wallet, or card/bank transfer via Flutterwave</span>
-          </div>
-
           <h3 className="mb-2.5 text-[14.5px] font-bold text-heading">Settings</h3>
           <div className="mb-[22px] flex flex-col overflow-hidden rounded-[14px] border border-border bg-card">
             <Link href="/notifications/settings" className="block">

@@ -13,7 +13,7 @@ export const WALLET_TOPUP_MAX_KOBO = 10000000; // ₦100,000
 
 /** Parses what someone types as an amount — "5000", "5,000", "₦5k", "N 2.5k" — into kobo. Null if it isn't one. */
 export function parseNairaAmount(text: string): number | null {
-  const match = text.trim().toLowerCase().replace(/[₦n,\s]/g, "").match(/^(\d+(?:\.\d+)?)(k?)$/);
+  const match = text.trim().toLowerCase().replace(/[₦n,\s]/g, "").match(/^(\d+(?:\.\d*)?)(k?)$/); // "5000." counts — it's mid-typing, not invalid
   if (!match) return null;
   const naira = Number(match[1]) * (match[2] ? 1000 : 1);
   return Number.isFinite(naira) && naira > 0 ? Math.round(naira * 100) : null;

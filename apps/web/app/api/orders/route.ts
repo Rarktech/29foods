@@ -14,7 +14,7 @@ import {
   type CartItem,
 } from "@29foods/core";
 import { calculateDeliveryFee } from "@/lib/pricing";
-import { PROTEIN_ADDONS } from "@/lib/protein-addons";
+import { resolveProteinKey, proteinsLabel, proteinsPrice } from "@/lib/protein-addons";
 
 interface RequestBody {
   items: { menuItemId: string; qty: number; basketLabel?: string; addonId?: string }[];
@@ -72,12 +72,16 @@ export async function POST(request: Request) {
     if (!menuItem || !menuItem.is_available || line.qty <= 0) {
       return NextResponse.json({ error: `${menuItem?.name ?? "An item"} is no longer available.` }, { status: 409 });
     }
-    // Protein add-ons are re-derived from the fixed PROTEIN_ADDONS list server-side — never trust a client-submitted price.
-    const addon = line.addonId ? PROTEIN_ADDONS.find((a) => a.id === line.addonId) : undefined;
-    const unitPrice = menuItem.price + (addon?.priceKobo ?? 0);
+    // Protein add-ons (one or several, e.g. "chicken+beef") are re-derived from the fixed
+    // PROTEIN_ADDONS list server-side — never trust a client-submitted price or label.
+    const proteins = line.addonId ? resolveProteinKey(line.addonId) : [];
+    if (!proteins) {
+      return NextResponse.json({ error: `One of the proteins on ${menuItem.name} isn't available. Please re-add it.` }, { status: 409 });
+    }
+    const unitPrice = menuItem.price + proteinsPrice(proteins);
     cartItems.push({
       menu_item_id: menuItem.id,
-      name: addon ? `${menuItem.name} — ${addon.label}` : menuItem.name,
+      name: proteins.length > 0 ? `${menuItem.name} — ${proteinsLabel(proteins)}` : menuItem.name,
       qty: line.qty,
       unit_price: unitPrice,
       basket_label: line.basketLabel,
