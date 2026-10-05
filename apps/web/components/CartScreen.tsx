@@ -11,6 +11,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getMenuImage } from "@/lib/menu-images";
 import { readStoredSourceQr } from "@/components/QrAttributionCapture";
 import { WalletFundSheet, CheckDot, useTopupReturn } from "@/components/WalletFundSheet";
+import { PersonNameSheet } from "@/components/OrderingForBar";
 
 interface SavedLocation {
   id: string;
@@ -36,7 +37,19 @@ export function CartScreen({
   initialSavedLocations: SavedLocation[];
 }) {
   const router = useRouter();
-  const { baskets, lines, updateQty, addBasket, removeBasket, renameBasket, basketSubtotal, subtotal, clear } = useCart();
+  const { baskets, lines, updateQty, addBasket, removeBasket, renameBasket, basketSubtotal, subtotal, clear, moveLine, setActiveBasket, activeBasketId } =
+    useCart();
+  const [personSheetOpen, setPersonSheetOpen] = useState(false);
+  /** Basket awaiting a second tap to confirm removal (only asked when it has food in it). */
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  /** The line whose "Move to…" menu is open, keyed basketId|menuItemId|addonId. */
+  const [moveMenuFor, setMoveMenuFor] = useState<string | null>(null);
+
+  /** Browse the menu with this person selected, so everything added lands in their pack. */
+  function addFoodFor(basketId: string) {
+    setActiveBasket(basketId);
+    router.push("/");
+  }
 
   const [locations, setLocations] = useState(initialSavedLocations);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(initialSavedLocations[0]?.id ?? null);
@@ -117,8 +130,10 @@ export function CartScreen({
 
     try {
       const items = lines.map((l) => {
-        const basket = baskets.find((b) => b.id === l.basketId);
-        return { menuItemId: l.menuItemId, qty: l.qty, basketLabel: basket?.label, addonId: l.addonId };
+        const index = baskets.findIndex((b) => b.id === l.basketId);
+        // A pack always carries a name for the kitchen to write — never a blank label.
+        const basketLabel = baskets[index]?.label.trim() || `Person ${index + 1}`;
+        return { menuItemId: l.menuItemId, qty: l.qty, basketLabel, addonId: l.addonId };
       });
       const response = await fetch("/api/orders", {
         method: "POST",
@@ -197,8 +212,10 @@ export function CartScreen({
 
           {baskets.map((basket, i) => {
             const basketLines = linesByBasket.get(basket.id) ?? [];
-            if (basketLines.length === 0) return null;
-            const isFirst = i === 0;
+            // Highlight whoever's being ordered for (the first basket when ordering solo).
+            const isFirst = basket.id === activeBasketId;
+            const displayName = basket.label.trim() || `Person ${i + 1}`;
+            const itemsInBasket = basketLines.reduce((n, l) => n + l.qty, 0);
             return (
               <div
                 key={basket.id}
@@ -224,26 +241,54 @@ export function CartScreen({
                     </label>
                     <input
                       value={basket.label}
+                      placeholder={`Person ${i + 1}`}
                       onChange={(e) => renameBasket(basket.id, e.target.value)}
                       className="w-full border-none bg-transparent p-0 text-[14.5px] font-bold text-heading outline-none"
                     />
                   </div>
-                  {baskets.length > 1 && (
-                    <button
-                      aria-label={`Remove basket ${i + 1}`}
-                      onClick={() => removeBasket(basket.id)}
-                      className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-none bg-bg"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--color-muted))" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 6 6 18M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
+                  {baskets.length > 1 &&
+                    (confirmRemoveId === basket.id ? (
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            removeBasket(basket.id);
+                            setConfirmRemoveId(null);
+                          }}
+                          className="rounded-full bg-accent px-2.5 py-1 text-[11px] font-bold text-white"
+                        >
+                          Remove {itemsInBasket} item{itemsInBasket === 1 ? "" : "s"}
+                        </button>
+                        <button onClick={() => setConfirmRemoveId(null)} className="px-1 text-[11px] font-bold text-muted">
+                          Keep
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        aria-label={`Remove ${displayName}'s pack`}
+                        // An empty pack goes straight away; one with food asks first.
+                        onClick={() => (itemsInBasket > 0 ? setConfirmRemoveId(basket.id) : removeBasket(basket.id))}
+                        className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-none bg-bg"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--color-muted))" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 6 6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    ))}
                 </div>
+
+                {basketLines.length === 0 && (
+                  <div className="mb-2 rounded-[14px] bg-card px-3.5 py-4 text-center">
+                    <p className="mb-2.5 text-[12.5px] text-muted">Nothing in {displayName}&rsquo;s pack yet.</p>
+                    <button onClick={() => addFoodFor(basket.id)} className="rounded-full bg-accent px-4 py-2 text-[12.5px] font-bold text-white">
+                      Browse the menu for {displayName}
+                    </button>
+                  </div>
+                )}
 
                 {basketLines.map((line) => {
                   const img = getMenuImage(line.name);
                   const displayName = line.addonLabel ? `${line.name} — ${line.addonLabel}` : line.name;
+                  const lineKey = `${basket.id}|${line.menuItemId}|${line.addonId ?? ""}`;
                   return (
                     <div key={`${line.menuItemId}-${line.addonId ?? "plain"}`} className="mb-2 flex gap-2.5 rounded-[14px] bg-card p-2.5">
                       {img ? (
@@ -252,7 +297,39 @@ export function CartScreen({
                         <div className="h-[52px] w-[52px] shrink-0 rounded-[10px] bg-border" />
                       )}
                       <div className="flex-grow">
-                        <div className="mb-0.5 text-[13px] font-bold text-heading">{displayName}</div>
+                        <div className="mb-0.5 flex items-start justify-between gap-2">
+                          <div className="text-[13px] font-bold text-heading">{displayName}</div>
+                          {baskets.length > 1 && (
+                            <button
+                              onClick={() => setMoveMenuFor(moveMenuFor === lineKey ? null : lineKey)}
+                              className="shrink-0 text-[11px] font-bold text-accent"
+                              aria-expanded={moveMenuFor === lineKey}
+                            >
+                              Move ↗
+                            </button>
+                          )}
+                        </div>
+                        {moveMenuFor === lineKey && (
+                          <div className="mb-2 flex flex-wrap gap-1.5">
+                            {baskets
+                              .filter((b) => b.id !== basket.id)
+                              .map((target) => {
+                                const targetIndex = baskets.indexOf(target);
+                                return (
+                                  <button
+                                    key={target.id}
+                                    onClick={() => {
+                                      moveLine(basket.id, line.menuItemId, line.addonId, target.id);
+                                      setMoveMenuFor(null);
+                                    }}
+                                    className="rounded-full border border-border bg-bg px-2.5 py-1 text-[11px] font-bold text-heading"
+                                  >
+                                    to {target.label.trim() || `Person ${targetIndex + 1}`}
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        )}
                         <div className="mb-1.5 text-[11px] text-muted">
                           {line.qty} × {formatKobo(line.unitPrice)}
                         </div>
@@ -281,19 +358,26 @@ export function CartScreen({
                   );
                 })}
 
-                <div
-                  className="flex justify-between pt-0.5 text-[12.5px] font-bold"
-                  style={{ color: isFirst ? "var(--promise-fg)" : "rgb(var(--color-body))" }}
-                >
-                  <span>Basket subtotal</span>
-                  <span>{formatKobo(basketSubtotal(basket.id))}</span>
-                </div>
+                {basketLines.length > 0 && (
+                  <>
+                    <button onClick={() => addFoodFor(basket.id)} className="mb-2 text-[12px] font-bold text-accent">
+                      + Add food for {displayName}
+                    </button>
+                    <div
+                      className="flex justify-between pt-0.5 text-[12.5px] font-bold"
+                      style={{ color: isFirst ? "var(--promise-fg)" : "rgb(var(--color-body))" }}
+                    >
+                      <span>Basket subtotal</span>
+                      <span>{formatKobo(basketSubtotal(basket.id))}</span>
+                    </div>
+                  </>
+                )}
               </div>
             );
           })}
 
           <button
-            onClick={() => addBasket(`Basket ${baskets.length + 1}`)}
+            onClick={() => setPersonSheetOpen(true)}
             className="mb-5 flex w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-[#D8CBB9] bg-transparent p-3.5 dark:border-[#4A453D]"
           >
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#F3E8DA] text-[13px] font-extrabold text-heading dark:bg-[#262626]">+</span>
@@ -547,6 +631,8 @@ export function CartScreen({
           </svg>
         </button>
       </div>
+
+      <PersonNameSheet open={personSheetOpen} onClose={() => setPersonSheetOpen(false)} onSave={(name) => addBasket(name)} />
 
       <WalletFundSheet
         open={fundSheetOpen}

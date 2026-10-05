@@ -6,6 +6,36 @@ type OrderRow = Database["public"]["Tables"]["orders"]["Row"];
 type OrderStatus = OrderRow["order_status"];
 type ActorType = Database["public"]["Tables"]["order_status_events"]["Row"]["actor_type"];
 
+export interface BasketGroup<T> {
+  /** The name to write on this pack; null when the order isn't split by person. */
+  label: string | null;
+  items: T[];
+}
+
+/**
+ * Splits an order's items into one group per person's pack (web baskets store a
+ * basket_label on each item). Orders with 0–1 distinct labels come back as a single
+ * unlabeled group, so a normal one-person order prints exactly as before. A pack still
+ * called "Me" is the customer's own — pass their name as `ownerName` to print that instead.
+ */
+export function groupItemsByBasket<T extends { basket_label?: string | null }>(items: T[], ownerName?: string | null): BasketGroup<T>[] {
+  const order: string[] = [];
+  const byLabel = new Map<string, T[]>();
+  for (const item of items) {
+    const label = item.basket_label?.trim() || "";
+    if (!byLabel.has(label)) {
+      byLabel.set(label, []);
+      order.push(label);
+    }
+    byLabel.get(label)!.push(item);
+  }
+  if (order.length <= 1) return [{ label: null, items }];
+  return order.map((label) => ({
+    label: label === "" ? "Unlabelled" : label === "Me" && ownerName?.trim() ? ownerName.trim() : label,
+    items: byLabel.get(label)!,
+  }));
+}
+
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   placed: ["paid", "cancelled"],
   paid: ["preparing", "cancelled"],

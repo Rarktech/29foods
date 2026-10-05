@@ -166,7 +166,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             <path d="M8 8V6a4 4 0 0 1 8 0v2" />
           </svg>
           <span className="text-[12.5px] font-semibold text-bg dark:text-body">
-            Ordering for the room too? <strong className="text-[#FFB25C]">Start a second basket</strong> at checkout
+            Ordering for the room too? <strong className="text-[#FFB25C]">Add a person</strong> above the menu, and each gets their own named pack
           </span>
         </div>
       </div>

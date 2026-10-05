@@ -23,17 +23,26 @@ export interface CartLine {
 interface CartState {
   baskets: CartBasket[];
   lines: CartLine[];
+  /** Who's being ordered for right now — every add without an explicit basket goes here. */
+  activeBasketId?: string | null;
 }
 
 interface CartContextValue {
   baskets: CartBasket[];
   lines: CartLine[];
-  /** Adds to the given basket, or the first/default basket (creating one) if omitted. */
+  /** The person currently being ordered for (see OrderingForBar). Null only before the first add. */
+  activeBasketId: string | null;
+  setActiveBasket: (basketId: string) => void;
+  /** Adds to the given basket, else the active one, else creates "Me". */
   addItem: (item: Omit<CartLine, "qty" | "basketId"> & { basketId?: string }, qty?: number) => void;
   updateQty: (basketId: string, menuItemId: string, qty: number, addonId?: string) => void;
   removeItem: (basketId: string, menuItemId: string, addonId?: string) => void;
-  /** Home's quick +/− doesn't know about baskets — drops the item from wherever it first appears. */
-  removeItemAnyBasket: (menuItemId: string) => void;
+  /** Home's quick ✕: drops every line of this dish from one person's pack only. */
+  removeFromBasket: (basketId: string, menuItemId: string) => void;
+  /** Moves a line to another person's pack, merging with a matching line already there. */
+  moveLine: (fromBasketId: string, menuItemId: string, addonId: string | undefined, toBasketId: string) => void;
+  qtyInBasket: (basketId: string | null, menuItemId: string) => number;
+  /** Creates a person's basket and makes it the active one. Returns its id. */
   addBasket: (label?: string) => string;
   removeBasket: (basketId: string) => void;
   renameBasket: (basketId: string, label: string) => void;
@@ -51,7 +60,12 @@ function makeBasketId(): string {
   return `basket_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-const EMPTY_STATE: CartState = { baskets: [], lines: [] };
+const EMPTY_STATE: CartState = { baskets: [], lines: [], activeBasketId: null };
+
+/** Carts saved before activeBasketId existed (or pointing at a removed basket) fall back to the first basket. */
+function resolveActive(state: CartState): string | null {
+  return state.baskets.some((b) => b.id === state.activeBasketId) ? state.activeBasketId! : (state.baskets[0]?.id ?? null);
+}
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<CartState>(EMPTY_STATE);
@@ -78,6 +92,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<CartContextValue>(() => {
     const { baskets, lines } = state;
+    const activeBasketId = resolveActive(state);
     const subtotal = lines.reduce((sum, l) => sum + l.unitPrice * l.qty, 0);
     const itemCount = lines.reduce((sum, l) => sum + l.qty, 0);
 
@@ -86,11 +101,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       lines,
       subtotal,
       itemCount,
+      activeBasketId,
+
+      setActiveBasket: (basketId) => setState((prev) => ({ ...prev, activeBasketId: basketId })),
 
       addItem: (item, qty = 1) => {
         setState((prev) => {
           let baskets = prev.baskets;
-          let basketId = item.basketId ?? baskets[0]?.id;
+          let basketId = item.basketId ?? resolveActive(prev) ?? undefined;
           if (!basketId) {
             basketId = makeBasketId();
             baskets = [...baskets, { id: basketId, label: "Me" }];
@@ -102,7 +120,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? prev.lines.map((l) => (matches(l) ? { ...l, qty: l.qty + qty } : l))
             : [...prev.lines, { ...item, basketId, qty }];
 
-          return { baskets, lines };
+          return { baskets, lines, activeBasketId: resolveActive(prev) ?? basketId };
         });
       },
 
@@ -123,27 +141,49 @@ export function CartProvider({ children }: { children: ReactNode }) {
           ),
         })),
 
-      removeItemAnyBasket: (menuItemId) =>
+      removeFromBasket: (basketId, menuItemId) =>
+        setState((prev) => ({
+          ...prev,
+          lines: prev.lines.filter((l) => !(l.basketId === basketId && l.menuItemId === menuItemId)),
+        })),
+
+      moveLine: (fromBasketId, menuItemId, addonId, toBasketId) =>
         setState((prev) => {
-          const idx = prev.lines.findIndex((l) => l.menuItemId === menuItemId);
-          if (idx === -1) return prev;
-          return { ...prev, lines: prev.lines.filter((_, i) => i !== idx) };
+          const isSource = (l: CartLine) => l.basketId === fromBasketId && l.menuItemId === menuItemId && l.addonId === addonId;
+          const source = prev.lines.find(isSource);
+          if (!source || fromBasketId === toBasketId) return prev;
+          const isTarget = (l: CartLine) => l.basketId === toBasketId && l.menuItemId === menuItemId && l.addonId === addonId;
+          const merged = prev.lines.some(isTarget);
+          const rest = prev.lines.filter((l) => !isSource(l)).map((l) => (isTarget(l) ? { ...l, qty: l.qty + source.qty } : l));
+          return { ...prev, lines: merged ? rest : [...rest, { ...source, basketId: toBasketId }] };
         }),
+
+      qtyInBasket: (basketId, menuItemId) =>
+        basketId ? lines.filter((l) => l.basketId === basketId && l.menuItemId === menuItemId).reduce((n, l) => n + l.qty, 0) : 0,
 
       addBasket: (label) => {
         const id = makeBasketId();
-        setState((prev) => ({
-          ...prev,
-          baskets: [...prev.baskets, { id, label: label ?? `Basket ${prev.baskets.length + 1}` }],
-        }));
+        setState((prev) => {
+          // Adding a friend before anything's in the cart still needs the orderer's own pack first.
+          const baskets = prev.baskets.length === 0 ? [{ id: makeBasketId(), label: "Me" }] : prev.baskets;
+          return {
+            ...prev,
+            baskets: [...baskets, { id, label: label?.trim() || `Person ${baskets.length + 1}` }],
+            activeBasketId: id,
+          };
+        });
         return id;
       },
 
       removeBasket: (basketId) =>
-        setState((prev) => ({
-          baskets: prev.baskets.filter((b) => b.id !== basketId),
-          lines: prev.lines.filter((l) => l.basketId !== basketId),
-        })),
+        setState((prev) => {
+          const baskets = prev.baskets.filter((b) => b.id !== basketId);
+          return {
+            baskets,
+            lines: prev.lines.filter((l) => l.basketId !== basketId),
+            activeBasketId: prev.activeBasketId === basketId ? (baskets[0]?.id ?? null) : prev.activeBasketId,
+          };
+        }),
 
       renameBasket: (basketId, label) =>
         setState((prev) => ({

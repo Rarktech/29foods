@@ -7,6 +7,7 @@ import { useCart } from "@/lib/cart-context";
 import { formatKobo } from "@/lib/format";
 import { getMenuImage } from "@/lib/menu-images";
 import { PROTEIN_ADDONS, proteinKey, proteinsLabel, proteinsPrice } from "@/lib/protein-addons";
+import { OrderingForBar } from "@/components/OrderingForBar";
 import type { MenuItemWithStock } from "@/components/MenuGrid";
 
 interface UpsellItem {
@@ -26,13 +27,12 @@ export function ItemDetail({
   isBestseller: boolean;
 }) {
   const router = useRouter();
-  const { baskets, addItem, addBasket, renameBasket } = useCart();
+  const { baskets, addItem, activeBasketId } = useCart();
 
   // Any number of proteins (including none); the first is pre-ticked on rice, as before.
   const [proteinIds, setProteinIds] = useState<string[]>(item.category === "rice" && PROTEIN_ADDONS[0] ? [PROTEIN_ADDONS[0].id] : []);
   const [qty, setQty] = useState(1);
   const [addUpsell, setAddUpsell] = useState(false);
-  const [basketId, setBasketId] = useState<string | null>(baskets[0]?.id ?? null);
 
   const proteins = PROTEIN_ADDONS.filter((p) => proteinIds.includes(p.id));
   const unitPrice = item.price + proteinsPrice(proteins);
@@ -42,12 +42,14 @@ export function ItemDetail({
   }
   const soldOut = !item.isAvailable || item.stockCount <= 0;
   const staticImage = getMenuImage(item.name);
-  const activeBasket = baskets.find((b) => b.id === basketId);
-  const ctaLabel = activeBasket ? `Add to ${activeBasket.label}` : "Add to Basket";
+  // Goes to whoever's selected in the "Ordering for" chips (shared with Home).
+  const multiPerson = baskets.length >= 2;
+  const activeBasket = baskets.find((b) => b.id === activeBasketId);
+  const ctaLabel = multiPerson && activeBasket ? `Add to ${activeBasket.label || "their"}'s pack` : "Add to Basket";
 
   function handleAdd() {
     if (soldOut) return;
-    const targetBasketId = basketId ?? undefined;
+    const targetBasketId = activeBasketId ?? undefined;
     addItem(
       {
         menuItemId: item.id,
@@ -67,7 +69,7 @@ export function ItemDetail({
   }
 
   return (
-    <div className="scrollbar-none flex flex-grow flex-col overflow-y-auto pb-[130px]">
+    <div className={`scrollbar-none flex flex-grow flex-col overflow-y-auto ${multiPerson ? "pb-[200px]" : "pb-[130px]"}`}>
       {/* Hero */}
       <div className="relative h-[280px] w-full shrink-0">
         {staticImage ? (
@@ -236,48 +238,17 @@ export function ItemDetail({
           Who&rsquo;s this for?
         </h3>
         <p className="mb-3 text-xs leading-[1.5] text-muted">
-          We&rsquo;ll write the name on the pack so nothing gets mixed up — great for splitting an order with roommates.
+          {multiPerson
+            ? "Pick whose pack this goes in, just above the Add button. Their name goes on the pack."
+            : "We’ll write the name on the pack so nothing gets mixed up — great for splitting an order with roommates."}
         </p>
 
-        <div className="mb-3.5 flex flex-col gap-2.5">
-          {baskets.map((basket, i) => {
-            const active = basket.id === basketId;
-            return (
-              <div
-                key={basket.id}
-                onClick={() => setBasketId(basket.id)}
-                className="flex cursor-pointer items-center gap-2.5 rounded-[14px] px-3.5 py-3"
-                style={{
-                  border: active ? "1.5px solid rgb(var(--color-accent))" : "1.5px solid rgb(var(--color-border))",
-                  background: active ? "rgb(var(--color-accent-tint))" : "rgb(var(--color-card))",
-                }}
-              >
-                <span
-                  className="h-[18px] w-[18px] shrink-0 rounded-full"
-                  style={{ border: active ? "5px solid rgb(var(--color-accent))" : "2px solid var(--muted-border-strong)" }}
-                />
-                <div className="flex-grow">
-                  <div className="mb-0.5 text-xs font-bold text-muted">Basket {i + 1}</div>
-                  <input
-                    value={basket.label}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => renameBasket(basket.id, e.target.value)}
-                    className={`w-full border-none bg-transparent p-0 text-[13.5px] outline-none ${active ? "font-bold text-heading" : "font-semibold text-body"}`}
-                  />
-                </div>
-              </div>
-            );
-          })}
-
-          <button
-            onClick={() => setBasketId(addBasket(`Basket ${baskets.length + 1}`))}
-            className="flex items-center justify-center gap-2 rounded-[14px] border-[1.5px] px-3.5 py-3"
-            style={{ borderStyle: "dashed", borderColor: "var(--muted-border-strong)" }}
-          >
-            <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#F3E8DA] text-xs font-extrabold text-heading dark:bg-[#2B2B2B]">+</span>
-            <span className="text-[13px] font-bold text-body">Add another basket — order for a friend</span>
-          </button>
-        </div>
+        {/* Solo: the "add a person" row lives here. With 2+ people the chips move next to the Add button. */}
+        {!multiPerson && (
+          <div className="mb-3.5">
+            <OrderingForBar />
+          </div>
+        )}
       </div>
 
       <div
@@ -290,6 +261,11 @@ export function ItemDetail({
           boxShadow: "var(--nav-shadow)",
         }}
       >
+        {multiPerson && !soldOut && (
+          <div className="mb-3 px-1">
+            <OrderingForBar compact />
+          </div>
+        )}
         <button
           onClick={handleAdd}
           disabled={soldOut}

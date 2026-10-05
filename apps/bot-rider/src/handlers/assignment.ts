@@ -1,6 +1,6 @@
 import type { Bot, Context } from "grammy";
 import { InlineKeyboard } from "grammy";
-import { shortOpId } from "@29foods/core";
+import { shortOpId, groupItemsByBasket } from "@29foods/core";
 import { getServiceClient } from "../supabase";
 import { dispatchWaitingOrders, recordDecline } from "../dispatcher";
 
@@ -32,7 +32,7 @@ interface AssignmentPayload {
   id: string;
   assigned_rider_id: string | null;
   order_status: string;
-  items: { name: string; qty: number }[];
+  items: { name: string; qty: number; basket_label?: string | null }[];
   lodge: string;
   room: string | null;
   payment_status: string;
@@ -63,7 +63,11 @@ async function notifyAssignment(bot: Bot<Context>, before: { assigned_rider_id?:
   const phone = customer?.phone;
   const customerName = customer?.name?.trim();
 
-  const itemsText = after.items.map((i) => `${i.qty}x ${i.name}`).join(", ");
+  // Split orders list each named pack, so the rider hands the right one to the right person.
+  const packs = groupItemsByBasket(after.items, customer?.name);
+  const listItems = (items: typeof after.items) => items.map((i) => `${i.qty}x ${i.name}`).join(", ");
+  const itemsText =
+    packs.length > 1 ? `${packs.length} packs:\n${packs.map((p) => `📦 ${p.label}: ${listItems(p.items)}`).join("\n")}` : listItems(after.items);
   // Short on purpose: Telegram caps callback_data at 64 bytes and the order id already takes 36.
   const clientOpId = shortOpId();
   const keyboard = new InlineKeyboard()

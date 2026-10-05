@@ -1,4 +1,4 @@
-import { formatKobo } from "@29foods/core";
+import { formatKobo, groupItemsByBasket } from "@29foods/core";
 import { getServiceClient } from "./supabase";
 
 export function escapeHtml(text: string): string {
@@ -28,11 +28,16 @@ export async function buildOrderCard(orderId: string): Promise<string | null> {
   ]);
 
   const name = user?.name?.trim() || "Customer";
-  const items = order.items as unknown as { name: string; qty: number }[];
+  const items = order.items as unknown as { name: string; qty: number; basket_label?: string | null }[];
+  const itemsText = (list: typeof items) => escapeHtml(list.map((i) => `${i.qty}x ${i.name}`).join(", "));
+  // Split orders get one line per pack, with the name the kitchen writes on it.
+  const packs = groupItemsByBasket(items, user?.name);
   const lines = [
     `🔔 New order #${order.id.slice(0, 8)}`,
     `👤 <b>${escapeHtml(name.toUpperCase())}</b>${user?.phone ? ` · ☎️ ${escapeHtml(user.phone)}` : ""}`,
-    escapeHtml(items.map((i) => `${i.qty}x ${i.name}`).join(", ")),
+    ...(packs.length > 1
+      ? [`${packs.length} packs:`, ...packs.map((p) => `📦 <b>${escapeHtml(p.label!.toUpperCase())}</b>: ${itemsText(p.items)}`)]
+      : [itemsText(items)]),
     `📍 ${escapeHtml(placeLabel(order.lodge, order.room))}`,
   ];
   if (order.note) lines.push(`📝 <b>${escapeHtml(order.note)}</b>`);

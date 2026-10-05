@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCart } from "@/lib/cart-context";
 import { formatKobo } from "@/lib/format";
 import { getMenuImage, BESTSELLER_NAME } from "@/lib/menu-images";
+import { OrderingForBar } from "@/components/OrderingForBar";
 
 export interface MenuItemWithStock {
   id: string;
@@ -30,9 +31,18 @@ export function MenuGrid({ items }: { items: MenuItemWithStock[] }) {
   const [category, setCategory] = useState("all");
   const visible = category === "all" ? items : items.filter((i) => i.category === category);
   const bestsellerId = items.find((i) => i.name === BESTSELLER_NAME)?.id ?? items[0]?.id;
+  const { baskets } = useCart();
 
   return (
     <>
+      {/* Sticky once there are several people, so who you're adding for is always on screen. */}
+      <div
+        className={`z-10 px-5 pb-3 pt-1 ${baskets.length >= 2 ? "sticky top-0" : ""}`}
+        style={baskets.length >= 2 ? { background: "rgb(var(--color-bg) / 0.94)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" } : undefined}
+      >
+        <OrderingForBar />
+      </div>
+
       <div className="scrollbar-none flex gap-2.5 overflow-x-auto px-5 pb-[18px]">
         {CATEGORIES.map((c) => {
           const active = c.value === category;
@@ -64,10 +74,10 @@ export function MenuGrid({ items }: { items: MenuItemWithStock[] }) {
 }
 
 function MenuCard({ item, isBestseller }: { item: MenuItemWithStock; isBestseller: boolean }) {
-  const { addItem, removeItemAnyBasket, lines } = useCart();
+  const { addItem, removeFromBasket, qtyInBasket, activeBasketId } = useCart();
   const soldOut = !item.isAvailable || item.stockCount <= 0;
-  const inCart = lines.find((l) => l.menuItemId === item.id);
-  const selected = !soldOut && !!inCart;
+  // ✓ means "in the pack of whoever you're ordering for right now", not "anywhere in the cart".
+  const selected = !soldOut && qtyInBasket(activeBasketId, item.id) > 0;
   const staticImage = getMenuImage(item.name);
 
   const cardStyle: React.CSSProperties = {
@@ -165,8 +175,8 @@ function MenuCard({ item, isBestseller }: { item: MenuItemWithStock; isBestselle
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (selected) {
-                  removeItemAnyBasket(item.id);
+                if (selected && activeBasketId) {
+                  removeFromBasket(activeBasketId, item.id);
                 } else {
                   addItem({ menuItemId: item.id, name: item.name, unitPrice: item.price, imageUrl: item.imageUrl });
                 }
