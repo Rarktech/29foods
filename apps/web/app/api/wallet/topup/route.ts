@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { createWalletTopup, initiateFlutterwavePayment, WALLET_TOPUP_MIN_KOBO, WALLET_TOPUP_MAX_KOBO, formatKobo } from "@29foods/core";
-import { isEnabledFundingMethod, TOPUP_RETURN_PATHS, type TopupReturnPath } from "@/lib/funding-methods";
+import { isEnabledFundingMethod, isTopupReturnPath, type TopupReturnPath } from "@/lib/funding-methods";
 
 interface RequestBody {
   amountKobo: number;
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   if (!isEnabledFundingMethod(body.method)) {
     return NextResponse.json({ error: "That funding option isn't available right now." }, { status: 400 });
   }
-  const returnTo: TopupReturnPath = TOPUP_RETURN_PATHS.includes(body.returnTo as TopupReturnPath) ? (body.returnTo as TopupReturnPath) : "/account";
+  const returnTo: TopupReturnPath = isTopupReturnPath(body.returnTo) ? body.returnTo : "/account";
 
   const service = getSupabaseServiceClient();
   const { data: profile } = await service.from("users").select("id, name, email, phone").eq("auth_uid", user.id).single();

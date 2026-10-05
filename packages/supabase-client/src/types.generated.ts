@@ -400,13 +400,13 @@ export interface Database {
       };
       wallet_transactions: {
         Row: {
-          id: string; user_id: string; amount: number; kind: "topup" | "order_payment" | "refund";
-          order_id: string | null; flutterwave_tx_ref: string | null; flutterwave_tx_id: string | null;
+          id: string; user_id: string; amount: number; kind: "topup" | "order_payment" | "subscription_payment" | "refund";
+          order_id: string | null; subscription_id: string | null; flutterwave_tx_ref: string | null; flutterwave_tx_id: string | null;
           status: "pending" | "completed" | "failed"; created_at: string; completed_at: string | null;
         };
         Insert: {
-          id?: string; user_id: string; amount: number; kind: "topup" | "order_payment" | "refund";
-          order_id?: string | null; flutterwave_tx_ref?: string | null; flutterwave_tx_id?: string | null;
+          id?: string; user_id: string; amount: number; kind: "topup" | "order_payment" | "subscription_payment" | "refund";
+          order_id?: string | null; subscription_id?: string | null; flutterwave_tx_ref?: string | null; flutterwave_tx_id?: string | null;
           status?: "pending" | "completed" | "failed"; created_at?: string; completed_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["wallet_transactions"]["Insert"]>;
@@ -441,6 +441,10 @@ export interface Database {
       mark_order_paid: {
         Args: { p_order_id: string; p_tx_id: string };
         Returns: Database["public"]["Tables"]["orders"]["Row"];
+      };
+      pay_subscription_from_wallet: {
+        Args: { p_subscription_id: string };
+        Returns: Database["public"]["Tables"]["subscriptions"]["Row"];
       };
       pay_order_fully_from_wallet: {
         Args: { p_order_id: string };

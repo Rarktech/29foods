@@ -215,7 +215,7 @@ const HOME_TOUR: TourStep[] = [
   {
     target: "nav-cart",
     title: "Your cart",
-    body: "Check out here. Pay by card or transfer, or straight from your wallet.",
+    body: "Check out here. Orders are paid straight from your wallet in one tap.",
   },
   {
     target: "nav-you",

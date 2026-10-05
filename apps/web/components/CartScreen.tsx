@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -71,15 +71,9 @@ export function CartScreen({
 
   const wallet = useTopupReturn(walletBalance);
   const [fundSheetOpen, setFundSheetOpen] = useState(false);
-  // Default to the wallet whenever it covers the order — that's the one-tap path.
-  const [payMethod, setPayMethod] = useState<"wallet" | "flutterwave">(walletBalance > 0 && walletBalance >= total ? "wallet" : "flutterwave");
+  // The website is wallet-only: card/transfer is only used to fund the wallet.
   const walletShortfall = Math.max(0, total - wallet.balance);
-  const walletShort = payMethod === "wallet" && walletShortfall > 0;
-
-  // Back from a top-up started on this screen: switch to paying from the wallet.
-  useEffect(() => {
-    if (wallet.state === "credited") setPayMethod("wallet");
-  }, [wallet.state]);
+  const walletShort = walletShortfall > 0;
 
   const linesByBasket = useMemo(() => {
     const map = new Map<string, CartLine[]>();
@@ -148,20 +142,20 @@ export function CartScreen({
           room: selectedLocation.room,
           phone: phone.trim() || null,
           sourceQr: readStoredSourceQr(),
-          paymentMethod: payMethod,
         }),
       });
-      const body = (await response.json()) as { error?: string; paymentLink?: string; orderId?: string; paid?: boolean };
+      const body = (await response.json()) as { error?: string; code?: string; orderId?: string; paid?: boolean };
       if (response.ok && body.paid && body.orderId) {
         // Settled from the wallet — straight to tracking, no checkout page.
         clear();
         router.push(`/order/${body.orderId}`);
         return;
       }
-      if (!response.ok || !body.paymentLink) throw new Error(body.error ?? "Something went wrong. Please try again.");
-
-      clear();
-      window.location.href = body.paymentLink;
+      if (body.code === "INSUFFICIENT_WALLET") {
+        // Balance changed since the page loaded (e.g. spent in another tab) — offer the top-up.
+        setFundSheetOpen(true);
+      }
+      throw new Error(body.error ?? "Something went wrong. Please try again.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setSubmitting(false);
@@ -539,40 +533,31 @@ export function CartScreen({
           {/* Payment */}
           <h3 className="mb-2.5 text-[14.5px] font-bold text-heading">Pay with</h3>
           <div data-tour="pay-with" className="mb-2 flex flex-col gap-2.5">
-            {isLoggedIn && (
-              <PayOption
-                active={payMethod === "wallet"}
-                onSelect={() => setPayMethod("wallet")}
-                badge="👛"
-                title="Wallet"
-                subtitle={
-                  wallet.state === "confirming"
+            <WalletPayRow
+              subtitle={
+                !isLoggedIn
+                  ? "Sign in to pay from your wallet"
+                  : wallet.state === "confirming"
                     ? "Confirming your top-up…"
                     : `${formatKobo(wallet.balance)} available${walletShortfall === 0 ? " · pays instantly" : ""}`
-                }
-              />
-            )}
-            {walletShort && (
+              }
+            />
+            {isLoggedIn && walletShort && (
               <div className="rounded-[14px] p-3.5" style={{ background: "var(--promise-bg)" }}>
                 <p className="mb-2.5 text-[12px] font-semibold leading-[1.5]" style={{ color: "var(--promise-fg)" }}>
                   {wallet.balance === 0
-                    ? `Your wallet is empty. Top up at least ${formatKobo(walletShortfall)} to pay for this order from your wallet.`
-                    : `Your wallet is ${formatKobo(walletShortfall)} short for this ${formatKobo(total)} order. Top up to pay from your wallet.`}
+                    ? `Your wallet is empty. Top up at least ${formatKobo(walletShortfall)} to pay for this order.`
+                    : `Your wallet is ${formatKobo(walletShortfall)} short for this ${formatKobo(total)} order. Top up to pay.`}
                 </p>
                 <button onClick={() => setFundSheetOpen(true)} className="rounded-full bg-accent px-4 py-2 text-[12.5px] font-bold text-white">
                   Top up wallet
                 </button>
               </div>
             )}
-            <PayOption
-              active={payMethod === "flutterwave"}
-              onSelect={() => setPayMethod("flutterwave")}
-              badge="PAY"
-              title="Card or bank transfer"
-              subtitle="Secure checkout via Flutterwave on the next screen"
-            />
           </div>
-          <p className="text-[11px] text-muted">No cash on delivery, and no refunds once an order is placed.</p>
+          <p className="text-[11px] text-muted">
+            Orders are paid from your wallet. Fund it anytime by card, bank transfer or USSD. No cash on delivery, and no refunds once an order is placed.
+          </p>
         </div>
       </div>
 
@@ -619,15 +604,11 @@ export function CartScreen({
           <span className="text-[14.5px] font-bold text-white">
             {!isLoggedIn
               ? "Sign in to pay"
-              : payMethod === "wallet"
-                ? submitting
-                  ? "Paying from wallet…"
-                  : walletShort
-                    ? `Top up ${formatKobo(walletShortfall)} to pay`
-                    : `Pay ${formatKobo(total)} from wallet`
-                : submitting
-                  ? "Redirecting to payment…"
-                  : `Pay ${formatKobo(total)} now`}
+              : submitting
+                ? "Paying from wallet…"
+                : walletShort
+                  ? `Top up ${formatKobo(walletShortfall)} to pay`
+                  : `Pay ${formatKobo(total)} from wallet`}
           </span>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2" />
@@ -662,35 +643,19 @@ export function CartScreen({
   );
 }
 
-function PayOption({
-  active,
-  onSelect,
-  badge,
-  title,
-  subtitle,
-}: {
-  active: boolean;
-  onSelect: () => void;
-  badge: string;
-  title: string;
-  subtitle: string;
-}) {
+/** The single payment method on the website: the wallet (always selected). */
+function WalletPayRow({ subtitle }: { subtitle: string }) {
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left"
-      style={{
-        background: active ? "rgb(var(--color-accent-tint))" : "rgb(var(--color-card))",
-        border: active ? "1.5px solid rgb(var(--color-accent))" : "1.5px solid rgb(var(--color-border))",
-      }}
+    <div
+      className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5"
+      style={{ background: "rgb(var(--color-accent-tint))", border: "1.5px solid rgb(var(--color-accent))" }}
     >
-      <div className="flex h-6 w-[34px] shrink-0 items-center justify-center rounded-[5px] bg-heading text-[9px] font-extrabold text-[#FFB25C]">{badge}</div>
+      <div className="flex h-6 w-[34px] shrink-0 items-center justify-center rounded-[5px] bg-heading text-[9px] font-extrabold text-[#FFB25C]">👛</div>
       <div className="flex-grow">
-        <span className="block text-[13.5px] font-bold text-heading">{title}</span>
+        <span className="block text-[13.5px] font-bold text-heading">Wallet</span>
         <span className="block text-[11px] text-muted">{subtitle}</span>
       </div>
-      {active ? <CheckDot /> : <span className="h-[18px] w-[18px] shrink-0 rounded-full border-[1.5px] border-border" />}
-    </button>
+      <CheckDot />
+    </div>
   );
 }

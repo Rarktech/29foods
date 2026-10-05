@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   PLAN_DURATIONS,
@@ -15,6 +15,14 @@ import {
 } from "@29foods/core";
 import { formatKobo } from "@/lib/format";
 import { getMenuImage } from "@/lib/menu-images";
+import { WalletFundSheet, useTopupReturn } from "@/components/WalletFundSheet";
+
+/** The plan being built, kept across a top-up round-trip (leaving for checkout reloads the page). */
+const DRAFT_KEY = "29foods.planDraft";
+interface PlanDraft {
+  durationId: string;
+  slots: Record<MealTime, SlotState>;
+}
 
 interface SlotState {
   enabled: boolean;
@@ -34,12 +42,17 @@ export function PlanSetupForm({
   duration: initialDuration,
   isLoggedIn,
   defaultLocation,
+  walletBalance,
 }: {
   duration: PlanDuration;
   isLoggedIn: boolean;
   defaultLocation: { lodge: string; room: string | null; label: string } | null;
+  walletBalance: number;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const wallet = useTopupReturn(walletBalance);
+  const [fundSheetOpen, setFundSheetOpen] = useState(false);
   const [duration, setDuration] = useState(initialDuration);
   const [slots, setSlots] = useState<Record<MealTime, SlotState>>({
     breakfast: { enabled: false, addonEnabled: false, freq: {} },
@@ -63,6 +76,34 @@ export function PlanSetupForm({
   );
 
   const pricing = useMemo(() => computeSubscriptionPricing(slotInputs, duration.numWeeks), [slotInputs, duration.numWeeks]);
+  // Plans are paid from the wallet only (the website is wallet-only).
+  const shortfall = pricing.hasAnyMeal ? Math.max(0, pricing.grandTotal - wallet.balance) : 0;
+
+  // Back from a top-up: restore the plan exactly as it was built.
+  useEffect(() => {
+    if (!searchParams.get("topup")) return;
+    try {
+      const raw = window.sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as PlanDraft;
+      const savedDuration = PLAN_DURATIONS.find((d) => d.id === draft.durationId);
+      if (savedDuration) setDuration(savedDuration);
+      setSlots(draft.slots);
+    } catch {
+      // unreadable draft — keep the defaults
+    }
+    // Only on arrival; later edits are the user's own.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function openTopup() {
+    try {
+      window.sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ durationId: duration.id, slots } satisfies PlanDraft));
+    } catch {
+      // storage blocked — the top-up still works, the plan just resets to defaults on return
+    }
+    setFundSheetOpen(true);
+  }
 
   function toggleSlot(mealTime: MealTime) {
     setSlots((prev) => {
@@ -104,6 +145,10 @@ export function PlanSetupForm({
       setError("Add a delivery location on the Cart screen first, then come back.");
       return;
     }
+    if (shortfall > 0) {
+      openTopup();
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -117,9 +162,18 @@ export function PlanSetupForm({
           slots: slotInputs,
         }),
       });
-      const body = (await response.json()) as { error?: string; paymentLink?: string };
-      if (!response.ok || !body.paymentLink) throw new Error(body.error ?? "Something went wrong. Please try again.");
-      window.location.href = body.paymentLink;
+      const body = (await response.json()) as { error?: string; code?: string; subscriptionId?: string; paid?: boolean };
+      if (response.ok && body.paid && body.subscriptionId) {
+        try {
+          window.sessionStorage.removeItem(DRAFT_KEY);
+        } catch {
+          // nothing to clean up
+        }
+        router.push(`/plans/confirmed/${body.subscriptionId}`);
+        return;
+      }
+      if (body.code === "INSUFFICIENT_WALLET") openTopup();
+      throw new Error(body.error ?? "Something went wrong. Please try again.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setSubmitting(false);
@@ -248,7 +302,20 @@ export function PlanSetupForm({
             <span>Total · {duration.label}</span>
             <span>{pricing.hasAnyMeal ? formatKobo(pricing.grandTotal) : "—"}</span>
           </div>
+          {isLoggedIn && (
+            <div className="mt-1 flex justify-between">
+              <span>👛 Wallet</span>
+              <span className={shortfall > 0 ? "font-bold text-accent" : "font-bold text-success"}>
+                {wallet.state === "confirming" ? "Confirming top-up…" : formatKobo(wallet.balance)}
+              </span>
+            </div>
+          )}
         </div>
+        {isLoggedIn && shortfall > 0 && (
+          <p className="mb-2 text-[11.5px] font-semibold leading-[1.45] text-body">
+            Plans are paid from your wallet. Top up {formatKobo(shortfall)} by card, bank transfer or USSD to start this one.
+          </p>
+        )}
         {error && <p className="mb-2 text-[12px] font-semibold text-accent">{error}</p>}
         <button
           onClick={handleStart}
@@ -257,10 +324,23 @@ export function PlanSetupForm({
           style={{ background: pricing.hasAnyMeal ? "rgb(var(--color-accent))" : "#D8CBB9" }}
         >
           <span className="text-[14.5px] font-bold text-white">
-            {submitting ? "Redirecting to payment…" : pricing.hasAnyMeal ? "Start my plan" : "Choose at least one meal"}
+            {!pricing.hasAnyMeal
+              ? "Choose at least one meal"
+              : submitting
+                ? "Paying from wallet…"
+                : isLoggedIn && shortfall > 0
+                  ? `Top up ${formatKobo(shortfall)} to start`
+                  : `Start my plan · ${formatKobo(pricing.grandTotal)}`}
           </span>
         </button>
       </div>
+
+      <WalletFundSheet
+        open={fundSheetOpen}
+        onClose={() => setFundSheetOpen(false)}
+        returnTo={`/plans/${duration.id}/setup`}
+        suggestedAmountKobo={shortfall > 0 ? shortfall : undefined}
+      />
     </>
   );
 }

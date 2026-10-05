@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@29foods/supabase-client";
 import type { DurationId, MealTime } from "./plans";
+import { InsufficientWalletError } from "./inventory";
 
 type Client = SupabaseClient<Database>;
 type SubscriptionRow = Database["public"]["Tables"]["subscriptions"]["Row"];
@@ -64,6 +65,20 @@ export async function createSubscriptionWithPendingPayment(
 export async function markSubscriptionPaid(supabase: Client, subscriptionId: string, txId: string): Promise<SubscriptionRow> {
   const { data, error } = await supabase.rpc("mark_subscription_paid", { p_subscription_id: subscriptionId, p_tx_id: txId });
   if (error) throw error;
+  return data;
+}
+
+/**
+ * Debits a pending plan's total from the wallet and activates it, atomically (see
+ * pay_subscription_from_wallet). Throws InsufficientWalletError if the balance is short —
+ * nothing is charged in that case. Idempotent for an already-active plan.
+ */
+export async function paySubscriptionFromWallet(supabase: Client, subscriptionId: string): Promise<SubscriptionRow> {
+  const { data, error } = await supabase.rpc("pay_subscription_from_wallet", { p_subscription_id: subscriptionId });
+  if (error) {
+    if (error.message.includes("INSUFFICIENT_WALLET")) throw new InsufficientWalletError();
+    throw error;
+  }
   return data;
 }
 

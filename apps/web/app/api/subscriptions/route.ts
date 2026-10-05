@@ -4,7 +4,10 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import {
   createSubscriptionWithPendingPayment,
-  initiateFlutterwavePayment,
+  paySubscriptionFromWallet,
+  expirePendingSubscription,
+  InsufficientWalletError,
+  formatKobo,
   computeSubscriptionPricing,
   assignWeekdays,
   PLAN_DURATIONS,
@@ -76,6 +79,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not find your account. Please sign in again." }, { status: 400 });
   }
 
+  // The website is wallet-only — Flutterwave is only for funding the wallet.
+  if (profile.wallet_balance < pricing.grandTotal) {
+    return NextResponse.json(
+      {
+        error: `Your wallet has ${formatKobo(profile.wallet_balance)}, this plan is ${formatKobo(pricing.grandTotal)}. Top up to start it.`,
+        code: "INSUFFICIENT_WALLET",
+        shortfall: pricing.grandTotal - profile.wallet_balance,
+      },
+      { status: 402 },
+    );
+  }
+
   const startDate = new Date();
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + duration.numWeeks * 7 - 1);
@@ -117,15 +132,16 @@ export async function POST(request: Request) {
     txRef,
   });
 
-  const baseUrl = process.env.NEXT_PUBLIC_WEB_BASE_URL ?? new URL(request.url).origin;
-  const { paymentLink } = await initiateFlutterwavePayment({
-    txRef,
-    amountNaira: subscription.total_paid / 100,
-    customerEmail: profile.email ?? user.email ?? "customer@29foods.app",
-    customerName: profile.name,
-    customerPhone: profile.phone,
-    redirectUrl: `${baseUrl}/plans/confirmed/${subscription.id}`,
-  });
+  try {
+    await paySubscriptionFromWallet(service, subscription.id);
+  } catch (err) {
+    if (err instanceof InsufficientWalletError) {
+      // Balance moved between the check above and the atomic debit (e.g. a second tab) — drop the pending plan.
+      await expirePendingSubscription(service, subscription.id);
+      return NextResponse.json({ error: "Your wallet balance changed. Top up to start this plan.", code: "INSUFFICIENT_WALLET" }, { status: 402 });
+    }
+    throw err;
+  }
 
-  return NextResponse.json({ subscriptionId: subscription.id, paymentLink });
+  return NextResponse.json({ subscriptionId: subscription.id, paid: true });
 }

@@ -8,7 +8,6 @@ import {
   OutOfStockError,
   InsufficientWalletError,
   linkPhoneToUser,
-  initiateFlutterwavePayment,
   payOrderFullyFromWallet,
   formatKobo,
   type CartItem,
@@ -22,8 +21,6 @@ interface RequestBody {
   room: string | null;
   phone: string | null;
   sourceQr: string | null;
-  /** "wallet" settles the whole order from the wallet balance — no checkout page at all. */
-  paymentMethod?: "wallet" | "flutterwave";
 }
 
 export async function POST(request: Request) {
@@ -91,11 +88,11 @@ export async function POST(request: Request) {
 
   const deliveryFee = calculateDeliveryFee(subtotal);
   const total = subtotal + deliveryFee;
-  const payFromWallet = body.paymentMethod === "wallet";
   const txRef = `29foods_${randomUUID()}`;
 
-  // Wallet payments are all-or-nothing on the web: no partial wallet + card split.
-  if (payFromWallet && currentProfile.wallet_balance < total) {
+  // The website is wallet-only (Flutterwave only funds the wallet), and all-or-nothing:
+  // no partial wallet + card split.
+  if (currentProfile.wallet_balance < total) {
     return NextResponse.json(
       {
         error: `Your wallet has ${formatKobo(currentProfile.wallet_balance)}, this order is ${formatKobo(total)}. Top up to pay from your wallet.`,
@@ -117,7 +114,7 @@ export async function POST(request: Request) {
       channel: "web",
       sourceQr: body.sourceQr ?? currentProfile.acquired_via_qr,
       txRef,
-      walletAmount: payFromWallet ? total : 0,
+      walletAmount: total,
     });
   } catch (err) {
     if (err instanceof InsufficientWalletError) {
@@ -133,21 +130,7 @@ export async function POST(request: Request) {
 
   revalidatePath("/"); // stock just changed — don't wait for the ISR window to catch up
 
-  if (payFromWallet) {
-    await payOrderFullyFromWallet(service, order.id);
-    revalidatePath("/account");
-    return NextResponse.json({ orderId: order.id, paid: true });
-  }
-
-  const baseUrl = process.env.NEXT_PUBLIC_WEB_BASE_URL ?? new URL(request.url).origin;
-  const { paymentLink } = await initiateFlutterwavePayment({
-    txRef,
-    amountNaira: order.total / 100,
-    customerEmail: currentProfile.email ?? user.email ?? "customer@29foods.app",
-    customerName: currentProfile.name,
-    customerPhone: currentProfile.phone,
-    redirectUrl: `${baseUrl}/order/${order.id}`,
-  });
-
-  return NextResponse.json({ orderId: order.id, paymentLink });
+  await payOrderFullyFromWallet(service, order.id);
+  revalidatePath("/account");
+  return NextResponse.json({ orderId: order.id, paid: true });
 }

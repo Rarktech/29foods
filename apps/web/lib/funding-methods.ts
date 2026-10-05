@@ -29,6 +29,11 @@ export function isEnabledFundingMethod(id: string): id is FundingMethodId {
   return FUNDING_METHODS.some((m) => m.id === id && m.enabled);
 }
 
-/** Pages a top-up may send the customer back to — never an arbitrary URL from the request. */
-export const TOPUP_RETURN_PATHS = ["/account", "/cart"] as const;
-export type TopupReturnPath = (typeof TOPUP_RETURN_PATHS)[number];
+/** A page a top-up may send the customer back to — never an arbitrary URL from the request. */
+export type TopupReturnPath = "/account" | "/cart" | `/plans/${string}/setup`;
+
+const PLAN_SETUP_PATH = /^\/plans\/(1_week|2_weeks|1_month)\/setup$/;
+
+export function isTopupReturnPath(path: unknown): path is TopupReturnPath {
+  return path === "/account" || path === "/cart" || (typeof path === "string" && PLAN_SETUP_PATH.test(path));
+}

@@ -17,7 +17,10 @@ export default async function PlanSetupPage({ params }: { params: Promise<{ dura
   const user = session?.user ?? null;
 
   let defaultLocation: { lodge: string; room: string | null; label: string } | null = null;
+  let walletBalance = 0;
   if (user) {
+    const { data: wallet } = await supabase.from("users").select("wallet_balance").eq("auth_uid", user.id).maybeSingle();
+    walletBalance = wallet?.wallet_balance ?? 0;
     const { data: locations } = await supabase
       .from("saved_locations")
       .select("lodge, room, label")
@@ -31,5 +34,5 @@ export default async function PlanSetupPage({ params }: { params: Promise<{ dura
     }
   }
 
-  return <PlanSetupForm duration={duration} isLoggedIn={!!user} defaultLocation={defaultLocation} />;
+  return <PlanSetupForm duration={duration} isLoggedIn={!!user} defaultLocation={defaultLocation} walletBalance={walletBalance} />;
 }
