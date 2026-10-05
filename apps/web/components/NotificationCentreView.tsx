@@ -8,7 +8,7 @@ import dishPhoto from "@/public/images/menu/party-jollof.jpg";
 
 export interface NotificationRow {
   id: string;
-  kind: "order_delivered" | "deal" | "menu_drop" | "loyalty" | "cart_reminder" | "plan_renew" | "plan_expired" | "referral" | "winback";
+  kind: "order_delivered" | "deal" | "menu_drop" | "loyalty" | "cart_reminder" | "plan_renew" | "plan_expired" | "referral" | "winback" | "plan_payment";
   title: string;
   body: string;
   href: string | null;
@@ -40,6 +40,7 @@ const CAT: Record<NotificationRow["kind"], "orders" | "offers"> = {
   plan_renew: "orders",
   plan_expired: "orders",
   cart_reminder: "orders",
+  plan_payment: "orders",
   deal: "offers",
   menu_drop: "offers",
   loyalty: "offers",
@@ -50,6 +51,7 @@ const CAT: Record<NotificationRow["kind"], "orders" | "offers"> = {
 const TONE: Record<NotificationRow["kind"], string> = {
   order_delivered: "text-success bg-success-bg",
   referral: "text-success bg-success-bg",
+  plan_payment: "text-success bg-success-bg",
   deal: "text-accent bg-accent-tint",
   plan_expired: "text-accent bg-accent-tint",
   winback: "text-accent bg-accent-tint",
@@ -90,6 +92,8 @@ function KindIcon({ kind, className }: { kind: NotificationRow["kind"]; classNam
       return <svg {...props}><circle cx="9" cy="20" r="1.2" /><circle cx="18" cy="20" r="1.2" /><path d="M2.5 3h2.2l2.5 11.6a1.8 1.8 0 0 0 1.8 1.4h8.6a1.8 1.8 0 0 0 1.8-1.4L21 7.5H6" /></svg>;
     case "loyalty":
       return <svg {...props}><path d="m12 2.6 2.9 5.9 6.5 1-4.7 4.6 1.1 6.5-5.8-3.1-5.8 3.1 1.1-6.5L2.6 9.5l6.5-1Z" /></svg>;
+    case "plan_payment":
+      return <svg {...props}><rect x="3" y="8" width="18" height="4" rx="1" /><path d="M12 8v13" /><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" /><path d="M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5" /></svg>;
     case "referral":
       return <svg {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16.5 3.3a4 4 0 0 1 0 7.4" /></svg>;
   }

@@ -6,6 +6,8 @@ import {
   createSubscriptionWithPendingPayment,
   paySubscriptionFromWallet,
   expirePendingSubscription,
+  createPlanPayRequest,
+  payRequestExpiry,
   InsufficientWalletError,
   formatKobo,
   computeSubscriptionPricing,
@@ -31,6 +33,8 @@ interface RequestBody {
   lodge: string;
   room: string | null;
   slots: RequestSlot[];
+  /** "someone" = don't charge the wallet; create a /pay/<code> link for a loved one to pay instead. */
+  payer?: "self" | "someone";
 }
 
 export async function POST(request: Request) {
@@ -79,8 +83,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not find your account. Please sign in again." }, { status: 400 });
   }
 
-  // The website is wallet-only — Flutterwave is only for funding the wallet.
-  if (profile.wallet_balance < pricing.grandTotal) {
+  const payerIsSomeoneElse = body.payer === "someone";
+
+  // The website is wallet-only — Flutterwave is only for funding the wallet (and for a
+  // loved one paying via a shared link, who has no wallet).
+  if (!payerIsSomeoneElse && profile.wallet_balance < pricing.grandTotal) {
     return NextResponse.json(
       {
         error: `Your wallet has ${formatKobo(profile.wallet_balance)}, this plan is ${formatKobo(pricing.grandTotal)}. Top up to start it.`,
@@ -131,6 +138,20 @@ export async function POST(request: Request) {
     deliveriesTotal: pricing.deliveries,
     txRef,
   });
+
+  if (payerIsSomeoneElse) {
+    // Keep the plan open long enough for the link to be seen and paid, and create the link.
+    const expiresAt = payRequestExpiry();
+    await service.from("subscriptions").update({ expires_at: expiresAt }).eq("id", subscription.id);
+    const payRequest = await createPlanPayRequest(service, {
+      subscriptionId: subscription.id,
+      requesterUserId: profile.id,
+      amount: subscription.total_paid,
+      expiresAt,
+    });
+    const baseUrl = process.env.NEXT_PUBLIC_WEB_BASE_URL ?? new URL(request.url).origin;
+    return NextResponse.json({ subscriptionId: subscription.id, payRequestCode: payRequest.code, payUrl: `${baseUrl}/pay/${payRequest.code}` });
+  }
 
   try {
     await paySubscriptionFromWallet(service, subscription.id);

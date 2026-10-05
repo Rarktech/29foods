@@ -35,5 +35,14 @@ export async function GET(request: Request) {
   if (subscriptionsError) throw subscriptionsError;
   await Promise.all((expiredSubscriptions ?? []).map((subscription) => expirePendingSubscription(service, subscription.id)));
 
+  // "Pay for my plan" links nobody paid within their window. (If money still arrives
+  // later, the webhook activates the plan anyway — see mark_plan_pay_request_paid.)
+  const { error: payRequestsError } = await service
+    .from("plan_pay_requests")
+    .update({ status: "expired" })
+    .eq("status", "pending")
+    .lt("expires_at", new Date().toISOString());
+  if (payRequestsError) throw payRequestsError;
+
   return NextResponse.json({ ordersReleased: expiredOrders?.length ?? 0, subscriptionsExpired: expiredSubscriptions?.length ?? 0 });
 }

@@ -8,6 +8,7 @@ export * from "./orders";
 export * from "./rider-assignment";
 export * from "./rider-invites";
 export * from "./compact-id";
+export * from "./pay-requests";
 export * from "./payments";
 export * from "./qr";
 export * from "./plans";

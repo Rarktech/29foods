@@ -8,6 +8,16 @@ import { BottomNav } from "@/components/shop/BottomNav";
 import { formatKobo } from "@/lib/format";
 import { WalletFundSheet, useTopupReturn } from "@/components/WalletFundSheet";
 import { TourLauncher } from "@/components/SpotlightTour";
+import { SharePlanLinkSheet, type ShareablePlanLink } from "@/components/SharePlanLinkSheet";
+
+interface PendingPayRequest {
+  code: string;
+  amount: number;
+  expiresAt: string;
+  opened: boolean;
+  durationLabel: string;
+  lodge: string;
+}
 
 interface SavedLocation {
   id: string;
@@ -36,6 +46,7 @@ export function AccountView({
   activeSubscription,
   walletBalance,
   walletTipSeen,
+  pendingPayRequests,
   updateProfileAction,
 }: {
   name: string;
@@ -46,11 +57,24 @@ export function AccountView({
   activeSubscription: ActiveSubscription | null;
   walletBalance: number;
   walletTipSeen: boolean;
+  pendingPayRequests: PendingPayRequest[];
   updateProfileAction: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [fundSheetOpen, setFundSheetOpen] = useState(false);
+  const [shareLink, setShareLink] = useState<ShareablePlanLink | null>(null);
+  const [cancellingCode, setCancellingCode] = useState<string | null>(null);
+
+  async function cancelPayRequest(code: string) {
+    setCancellingCode(code);
+    try {
+      await fetch(`/api/pay/${code}/cancel`, { method: "POST" });
+    } finally {
+      setCancellingCode(null);
+      router.refresh();
+    }
+  }
   const wallet = useTopupReturn(walletBalance);
   const initial = (name || email || "?").trim().charAt(0).toUpperCase();
 
@@ -170,6 +194,40 @@ export function AccountView({
             )}
           </div>
 
+          {/* "Pay for my plan" links waiting on a loved one */}
+          {pendingPayRequests.map((req) => {
+            const hoursLeft = Math.max(0, Math.floor((new Date(req.expiresAt).getTime() - Date.now()) / 3_600_000));
+            return (
+              <div key={req.code} className="mb-5 rounded-2xl border-[1.5px] border-dashed p-4" style={{ borderColor: "var(--muted-border-strong)" }}>
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted">Waiting for payment</span>
+                  <span className={`text-[11px] font-bold ${req.opened ? "text-success" : "text-muted"}`}>{req.opened ? "👀 Opened" : "Not opened yet"}</span>
+                </div>
+                <div className="mb-0.5 text-[15px] font-bold text-heading">
+                  {req.durationLabel} plan · {formatKobo(req.amount)}
+                </div>
+                <div className="mb-3 text-[11.5px] text-muted">Link works for {hoursLeft >= 1 ? `${hoursLeft} more hour${hoursLeft === 1 ? "" : "s"}` : "less than an hour"}</div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() =>
+                      setShareLink({ url: `${window.location.origin}/pay/${req.code}`, durationLabel: req.durationLabel, lodge: req.lodge, amount: req.amount })
+                    }
+                    className="rounded-full bg-accent px-4 py-2 text-[12.5px] font-bold text-white"
+                  >
+                    Share again
+                  </button>
+                  <button
+                    onClick={() => cancelPayRequest(req.code)}
+                    disabled={cancellingCode === req.code}
+                    className="rounded-full border border-border px-4 py-2 text-[12.5px] font-bold text-body disabled:opacity-60"
+                  >
+                    {cancellingCode === req.code ? "Cancelling…" : "Cancel"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
           {activeSubscription && (
             <Link
               href={`/plans/confirmed/${activeSubscription.id}`}
@@ -254,6 +312,7 @@ export function AccountView({
 
       <BottomNav />
       <WalletFundSheet open={fundSheetOpen} onClose={() => setFundSheetOpen(false)} returnTo="/account" />
+      <SharePlanLinkSheet link={shareLink} onClose={() => setShareLink(null)} />
       <TourLauncher
         tourKey="youTip"
         accountSeen={walletTipSeen}

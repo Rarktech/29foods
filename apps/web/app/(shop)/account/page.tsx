@@ -14,7 +14,7 @@ export default async function AccountPage() {
   const user = session?.user ?? null;
   if (!user) redirect("/login?next=/account");
 
-  const [{ data: profile }, { data: locations }, { data: subscription }] = await Promise.all([
+  const [{ data: profile }, { data: locations }, { data: subscription }, { data: payRequests }] = await Promise.all([
     supabase.from("users").select("name, phone, lodge, wallet_balance, onboarding").eq("auth_uid", user.id).maybeSingle(),
     supabase
       .from("saved_locations")
@@ -26,8 +26,29 @@ export default async function AccountPage() {
       .select("id, duration_id, start_date, end_date, deliveries_total, deliveries_used")
       .eq("status", "active")
       .order("created_at", { ascending: false })
+      // A student can have more than one active plan (e.g. one paid by a loved one) — show the newest.
+      .limit(1)
       .maybeSingle(),
+    // "Pay for my plan" links still waiting on someone (RLS: only this user's own).
+    supabase
+      .from("plan_pay_requests")
+      .select("code, amount, expires_at, opened_at, subscriptions(duration_id, lodge)")
+      .eq("status", "pending")
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false }),
   ]);
+
+  const pendingPayRequests = (payRequests ?? []).map((r) => {
+    const plan = Array.isArray(r.subscriptions) ? r.subscriptions[0] : r.subscriptions;
+    return {
+      code: r.code,
+      amount: r.amount,
+      expiresAt: r.expires_at,
+      opened: !!r.opened_at,
+      durationLabel: PLAN_DURATIONS.find((d) => d.id === plan?.duration_id)?.label ?? "Meal plan",
+      lodge: plan?.lodge ?? "",
+    };
+  });
 
   const duration = subscription ? PLAN_DURATIONS.find((d) => d.id === subscription.duration_id) : null;
 
@@ -40,6 +61,7 @@ export default async function AccountPage() {
       locations={locations ?? []}
       walletBalance={profile?.wallet_balance ?? 0}
       walletTipSeen={!!profile?.onboarding?.youTip}
+      pendingPayRequests={pendingPayRequests}
       activeSubscription={
         subscription && duration
           ? {

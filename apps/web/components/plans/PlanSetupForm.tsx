@@ -16,6 +16,7 @@ import {
 import { formatKobo } from "@/lib/format";
 import { getMenuImage } from "@/lib/menu-images";
 import { WalletFundSheet, useTopupReturn } from "@/components/WalletFundSheet";
+import { SharePlanLinkSheet, type ShareablePlanLink } from "@/components/SharePlanLinkSheet";
 
 /** The plan being built, kept across a top-up round-trip (leaving for checkout reloads the page). */
 const DRAFT_KEY = "29foods.planDraft";
@@ -53,6 +54,8 @@ export function PlanSetupForm({
   const searchParams = useSearchParams();
   const wallet = useTopupReturn(walletBalance);
   const [fundSheetOpen, setFundSheetOpen] = useState(false);
+  const [shareLink, setShareLink] = useState<ShareablePlanLink | null>(null);
+  const [requesting, setRequesting] = useState(false);
   const [duration, setDuration] = useState(initialDuration);
   const [slots, setSlots] = useState<Record<MealTime, SlotState>>({
     breakfast: { enabled: false, addonEnabled: false, freq: {} },
@@ -135,6 +138,35 @@ export function PlanSetupForm({
     setSlots((prev) => ({ ...prev, [mealTime]: { ...prev[mealTime], addonEnabled: !prev[mealTime].addonEnabled } }));
   }
 
+  /** Creates the plan unpaid plus a /pay link a loved one can pay by card — no wallet needed. */
+  async function askSomeoneToPay() {
+    if (!pricing.hasAnyMeal) return;
+    if (!isLoggedIn) {
+      router.push(`/login?next=/plans/${duration.id}/setup`);
+      return;
+    }
+    if (!defaultLocation) {
+      setError("Add a delivery location on the Cart screen first, then come back.");
+      return;
+    }
+    setRequesting(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ durationId: duration.id, lodge: defaultLocation.lodge, room: defaultLocation.room, slots: slotInputs, payer: "someone" }),
+      });
+      const body = (await response.json()) as { error?: string; payUrl?: string };
+      if (!response.ok || !body.payUrl) throw new Error(body.error ?? "Something went wrong. Please try again.");
+      setShareLink({ url: body.payUrl, durationLabel: duration.label, lodge: defaultLocation.lodge, amount: pricing.grandTotal });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setRequesting(false);
+    }
+  }
+
   async function handleStart() {
     if (!pricing.hasAnyMeal) return;
     if (!isLoggedIn) {
@@ -195,7 +227,7 @@ export function PlanSetupForm({
         <h1 className="text-[18px] font-extrabold text-heading">Build your plan</h1>
       </div>
 
-      <div className="scrollbar-none flex-grow overflow-y-auto pb-[220px]">
+      <div className="scrollbar-none flex-grow overflow-y-auto pb-[300px]">
         <div className="px-5 pt-1">
           <h3 className="mb-2.5 text-[14.5px] font-bold text-heading">Plan length</h3>
           <div className="mb-6 flex gap-2">
@@ -333,7 +365,24 @@ export function PlanSetupForm({
                   : `Start my plan · ${formatKobo(pricing.grandTotal)}`}
           </span>
         </button>
+        {pricing.hasAnyMeal && (
+          <button
+            onClick={askSomeoneToPay}
+            disabled={requesting || submitting}
+            className="mt-2 w-full rounded-2xl border-[1.5px] border-border bg-card px-5 py-3 text-[13px] font-bold text-heading disabled:opacity-60"
+          >
+            {requesting ? "Creating your link…" : "💛 Ask someone to pay for it"}
+          </button>
+        )}
       </div>
+
+      <SharePlanLinkSheet
+        link={shareLink}
+        onClose={() => {
+          setShareLink(null);
+          router.push("/account"); // the pending request lives on the You page from here
+        }}
+      />
 
       <WalletFundSheet
         open={fundSheetOpen}

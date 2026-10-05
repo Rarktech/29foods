@@ -341,13 +341,13 @@ export interface Database {
       notifications: {
         Row: {
           id: string; user_id: string;
-          kind: "order_delivered" | "deal" | "menu_drop" | "loyalty" | "cart_reminder" | "plan_renew" | "plan_expired" | "referral" | "winback";
+          kind: "order_delivered" | "deal" | "menu_drop" | "loyalty" | "cart_reminder" | "plan_renew" | "plan_expired" | "referral" | "winback" | "plan_payment";
           title: string; body: string; href: string | null; thumb_url: string | null;
           order_id: string | null; read: boolean; created_at: string;
         };
         Insert: {
           id?: string; user_id: string;
-          kind: "order_delivered" | "deal" | "menu_drop" | "loyalty" | "cart_reminder" | "plan_renew" | "plan_expired" | "referral" | "winback";
+          kind: "order_delivered" | "deal" | "menu_drop" | "loyalty" | "cart_reminder" | "plan_renew" | "plan_expired" | "referral" | "winback" | "plan_payment";
           title: string; body: string; href?: string | null; thumb_url?: string | null;
           order_id?: string | null; read?: boolean; created_at?: string;
         };
@@ -420,6 +420,30 @@ export interface Database {
           },
         ];
       };
+      plan_pay_requests: {
+        Row: {
+          id: string; code: string; subscription_id: string; requester_user_id: string; amount: number;
+          status: "pending" | "paid" | "expired" | "cancelled"; expires_at: string; opened_at: string | null;
+          payer_name: string | null; payer_email: string | null; payer_message: string | null;
+          flutterwave_tx_id: string | null; paid_at: string | null; created_at: string;
+        };
+        Insert: {
+          id?: string; code: string; subscription_id: string; requester_user_id: string; amount: number;
+          status?: "pending" | "paid" | "expired" | "cancelled"; expires_at: string; opened_at?: string | null;
+          payer_name?: string | null; payer_email?: string | null; payer_message?: string | null;
+          flutterwave_tx_id?: string | null; paid_at?: string | null; created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["plan_pay_requests"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "plan_pay_requests_subscription_id_fkey";
+            columns: ["subscription_id"];
+            isOneToOne: true;
+            referencedRelation: "subscriptions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       bot_sessions: {
         Row: { key: string; value: Json; updated_at: string };
         Insert: { key: string; value: Json; updated_at?: string };
@@ -441,6 +465,10 @@ export interface Database {
       mark_order_paid: {
         Args: { p_order_id: string; p_tx_id: string };
         Returns: Database["public"]["Tables"]["orders"]["Row"];
+      };
+      mark_plan_pay_request_paid: {
+        Args: { p_code: string; p_tx_id: string };
+        Returns: Database["public"]["Tables"]["plan_pay_requests"]["Row"];
       };
       pay_subscription_from_wallet: {
         Args: { p_subscription_id: string };

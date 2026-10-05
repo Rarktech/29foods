@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { verifyWebhookSignature, verifyTransaction, markOrderPaid, markSubscriptionPaid, completeWalletTopup } from "@29foods/core";
+import {
+  verifyWebhookSignature,
+  verifyTransaction,
+  markOrderPaid,
+  markSubscriptionPaid,
+  completeWalletTopup,
+  payRequestCodeFromTxRef,
+  markPlanPayRequestPaid,
+  formatKobo,
+} from "@29foods/core";
+import { notifyPlanRequester } from "@/lib/plan-pay-notify";
 
 // Flutterwave webhook. Never trust the request body's `status`/`amount` fields directly —
 // verify the signature header, then re-verify the transaction against Flutterwave's API
@@ -38,6 +48,37 @@ export async function POST(request: Request) {
 
   const service = getSupabaseServiceClient();
   const paidAmountKobo = Math.round(verified.amountNaira * 100);
+
+  // Someone paying for a student's meal plan via a shared /pay/<code> link.
+  const payRequestCode = payRequestCodeFromTxRef(txRef);
+  if (payRequestCode) {
+    const { data: payRequest } = await service
+      .from("plan_pay_requests")
+      .select("id, amount, status, requester_user_id, payer_name, payer_message")
+      .eq("code", payRequestCode)
+      .maybeSingle();
+    if (!payRequest) {
+      console.error("[flw-webhook] no pay request for tx_ref", txRef);
+      return NextResponse.json({ error: "No pay request found for tx_ref" }, { status: 404 });
+    }
+    if (paidAmountKobo !== payRequest.amount) {
+      console.error("[flw-webhook] amount mismatch", { payRequestId: payRequest.id, txRef, paidAmountKobo, amount: payRequest.amount });
+      return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
+    }
+    const alreadyPaid = payRequest.status === "paid";
+    await markPlanPayRequestPaid(service, payRequestCode, transactionId);
+    if (!alreadyPaid) {
+      const payer = payRequest.payer_name?.trim() || "Someone";
+      await notifyPlanRequester(service, payRequest.requester_user_id, {
+        title: `${payer} paid for your meal plan 🎉`,
+        body: payRequest.payer_message?.trim()
+          ? `"${payRequest.payer_message.trim()}" · ${formatKobo(payRequest.amount)}, your plan is now active.`
+          : `${formatKobo(payRequest.amount)} paid, your plan is now active.`,
+        href: "/account",
+      });
+    }
+    return NextResponse.json({ received: true });
+  }
 
   const { data: order } = await service.from("orders").select("id, total, wallet_paid").eq("flutterwave_tx_ref", txRef).maybeSingle();
   if (order) {

@@ -69,6 +69,7 @@ const KIND_PREF_KEY: Record<NotificationKind, keyof NotificationPrefs | null> = 
   plan_expired: "planRenew",
   referral: "referral",
   winback: "winback",
+  plan_payment: null, // someone paying for (or opening) your plan link — always worth knowing
 };
 
 // Only order-related alerts interrupt with a push — everything else (deals, menu drops,
@@ -76,7 +77,7 @@ const KIND_PREF_KEY: Record<NotificationKind, keyof NotificationPrefs | null> = 
 // in-app notification list, but never pushes, even if its own toggle is on. Live order
 // progress (sendOrderProgressPush) bypasses this entirely by design — it's not routed
 // through notifyUser at all.
-const IMPORTANT_KINDS: ReadonlySet<NotificationKind> = new Set(["order_delivered"]);
+const IMPORTANT_KINDS: ReadonlySet<NotificationKind> = new Set(["order_delivered", "plan_payment"]);
 
 export interface NotifyUserInput {
   userId: string;
