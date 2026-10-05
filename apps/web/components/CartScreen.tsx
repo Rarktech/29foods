@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -10,6 +10,7 @@ import { calculateDeliveryFee, FREE_DELIVERY_THRESHOLD_KOBO } from "@/lib/pricin
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getMenuImage } from "@/lib/menu-images";
 import { readStoredSourceQr } from "@/components/QrAttributionCapture";
+import { WalletFundSheet, CheckDot, useTopupReturn } from "@/components/WalletFundSheet";
 
 interface SavedLocation {
   id: string;
@@ -25,11 +26,13 @@ export function CartScreen({
   isLoggedIn,
   userId,
   userPhone,
+  walletBalance,
   initialSavedLocations,
 }: {
   isLoggedIn: boolean;
   userId: string | null;
   userPhone: string | null;
+  walletBalance: number;
   initialSavedLocations: SavedLocation[];
 }) {
   const router = useRouter();
@@ -48,6 +51,18 @@ export function CartScreen({
   const remainingForFree = deliveryFee > 0 ? FREE_DELIVERY_THRESHOLD_KOBO - subtotal : 0;
   const progressPct = Math.min(100, Math.round((subtotal / FREE_DELIVERY_THRESHOLD_KOBO) * 100));
   const selectedLocation = locations.find((l) => l.id === selectedLocationId) ?? null;
+
+  const wallet = useTopupReturn(walletBalance);
+  const [fundSheetOpen, setFundSheetOpen] = useState(false);
+  // Default to the wallet whenever it covers the order — that's the one-tap path.
+  const [payMethod, setPayMethod] = useState<"wallet" | "flutterwave">(walletBalance > 0 && walletBalance >= total ? "wallet" : "flutterwave");
+  const walletShortfall = Math.max(0, total - wallet.balance);
+  const walletShort = payMethod === "wallet" && walletShortfall > 0;
+
+  // Back from a top-up started on this screen: switch to paying from the wallet.
+  useEffect(() => {
+    if (wallet.state === "credited") setPayMethod("wallet");
+  }, [wallet.state]);
 
   const linesByBasket = useMemo(() => {
     const map = new Map<string, CartLine[]>();
@@ -93,6 +108,10 @@ export function CartScreen({
       setError("Pick a delivery location first.");
       return;
     }
+    if (walletShort) {
+      setFundSheetOpen(true);
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
@@ -110,9 +129,16 @@ export function CartScreen({
           room: selectedLocation.room,
           phone: phone.trim() || null,
           sourceQr: readStoredSourceQr(),
+          paymentMethod: payMethod,
         }),
       });
-      const body = (await response.json()) as { error?: string; paymentLink?: string };
+      const body = (await response.json()) as { error?: string; paymentLink?: string; orderId?: string; paid?: boolean };
+      if (response.ok && body.paid && body.orderId) {
+        // Settled from the wallet — straight to tracking, no checkout page.
+        clear();
+        router.push(`/order/${body.orderId}`);
+        return;
+      }
       if (!response.ok || !body.paymentLink) throw new Error(body.error ?? "Something went wrong. Please try again.");
 
       clear();
@@ -424,19 +450,39 @@ export function CartScreen({
 
           {/* Payment */}
           <h3 className="mb-2.5 text-[14.5px] font-bold text-heading">Pay with</h3>
-          <div className="mb-2 flex items-center gap-3 rounded-[14px] border-[1.5px] border-accent bg-card px-4 py-3.5">
-            <div className="flex h-6 w-[34px] shrink-0 items-center justify-center rounded-[5px] bg-heading text-[9px] font-extrabold text-[#FFB25C]">
-              PAY
-            </div>
-            <div className="flex-grow">
-              <span className="block text-[13.5px] font-bold text-heading">Card or bank transfer</span>
-              <span className="block text-[11px] text-muted">Secure checkout via Flutterwave on the next screen</span>
-            </div>
-            <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-accent">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 6 9 17l-5-5" />
-              </svg>
-            </span>
+          <div className="mb-2 flex flex-col gap-2.5">
+            {isLoggedIn && (
+              <PayOption
+                active={payMethod === "wallet"}
+                onSelect={() => setPayMethod("wallet")}
+                badge="👛"
+                title="Wallet"
+                subtitle={
+                  wallet.state === "confirming"
+                    ? "Confirming your top-up…"
+                    : `${formatKobo(wallet.balance)} available${walletShortfall === 0 ? " · pays instantly" : ""}`
+                }
+              />
+            )}
+            {walletShort && (
+              <div className="rounded-[14px] p-3.5" style={{ background: "var(--promise-bg)" }}>
+                <p className="mb-2.5 text-[12px] font-semibold leading-[1.5]" style={{ color: "var(--promise-fg)" }}>
+                  {wallet.balance === 0
+                    ? `Your wallet is empty. Top up at least ${formatKobo(walletShortfall)} to pay for this order from your wallet.`
+                    : `Your wallet is ${formatKobo(walletShortfall)} short for this ${formatKobo(total)} order. Top up to pay from your wallet.`}
+                </p>
+                <button onClick={() => setFundSheetOpen(true)} className="rounded-full bg-accent px-4 py-2 text-[12.5px] font-bold text-white">
+                  Top up wallet
+                </button>
+              </div>
+            )}
+            <PayOption
+              active={payMethod === "flutterwave"}
+              onSelect={() => setPayMethod("flutterwave")}
+              badge="PAY"
+              title="Card or bank transfer"
+              subtitle="Secure checkout via Flutterwave on the next screen"
+            />
           </div>
           <p className="text-[11px] text-muted">No cash on delivery, and no refunds once an order is placed.</p>
         </div>
@@ -483,7 +529,17 @@ export function CartScreen({
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent px-5 py-4 disabled:opacity-60"
         >
           <span className="text-[14.5px] font-bold text-white">
-            {submitting ? "Redirecting to payment…" : isLoggedIn ? `Pay ${formatKobo(total)} now` : "Sign in to pay"}
+            {!isLoggedIn
+              ? "Sign in to pay"
+              : payMethod === "wallet"
+                ? submitting
+                  ? "Paying from wallet…"
+                  : walletShort
+                    ? `Top up ${formatKobo(walletShortfall)} to pay`
+                    : `Pay ${formatKobo(total)} from wallet`
+                : submitting
+                  ? "Redirecting to payment…"
+                  : `Pay ${formatKobo(total)} now`}
           </span>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2" />
@@ -491,6 +547,46 @@ export function CartScreen({
           </svg>
         </button>
       </div>
+
+      <WalletFundSheet
+        open={fundSheetOpen}
+        onClose={() => setFundSheetOpen(false)}
+        returnTo="/cart"
+        suggestedAmountKobo={walletShortfall > 0 ? walletShortfall : undefined}
+      />
     </>
+  );
+}
+
+function PayOption({
+  active,
+  onSelect,
+  badge,
+  title,
+  subtitle,
+}: {
+  active: boolean;
+  onSelect: () => void;
+  badge: string;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="flex w-full items-center gap-3 rounded-[14px] px-4 py-3.5 text-left"
+      style={{
+        background: active ? "rgb(var(--color-accent-tint))" : "rgb(var(--color-card))",
+        border: active ? "1.5px solid rgb(var(--color-accent))" : "1.5px solid rgb(var(--color-border))",
+      }}
+    >
+      <div className="flex h-6 w-[34px] shrink-0 items-center justify-center rounded-[5px] bg-heading text-[9px] font-extrabold text-[#FFB25C]">{badge}</div>
+      <div className="flex-grow">
+        <span className="block text-[13.5px] font-bold text-heading">{title}</span>
+        <span className="block text-[11px] text-muted">{subtitle}</span>
+      </div>
+      {active ? <CheckDot /> : <span className="h-[18px] w-[18px] shrink-0 rounded-full border-[1.5px] border-border" />}
+    </button>
   );
 }

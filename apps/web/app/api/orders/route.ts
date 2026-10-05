@@ -3,7 +3,16 @@ import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { createOrderWithReservation, OutOfStockError, linkPhoneToUser, initiateFlutterwavePayment, type CartItem } from "@29foods/core";
+import {
+  createOrderWithReservation,
+  OutOfStockError,
+  InsufficientWalletError,
+  linkPhoneToUser,
+  initiateFlutterwavePayment,
+  payOrderFullyFromWallet,
+  formatKobo,
+  type CartItem,
+} from "@29foods/core";
 import { calculateDeliveryFee } from "@/lib/pricing";
 import { PROTEIN_ADDONS } from "@/lib/protein-addons";
 
@@ -13,6 +22,8 @@ interface RequestBody {
   room: string | null;
   phone: string | null;
   sourceQr: string | null;
+  /** "wallet" settles the whole order from the wallet balance — no checkout page at all. */
+  paymentMethod?: "wallet" | "flutterwave";
 }
 
 export async function POST(request: Request) {
@@ -75,7 +86,21 @@ export async function POST(request: Request) {
   }
 
   const deliveryFee = calculateDeliveryFee(subtotal);
+  const total = subtotal + deliveryFee;
+  const payFromWallet = body.paymentMethod === "wallet";
   const txRef = `29foods_${randomUUID()}`;
+
+  // Wallet payments are all-or-nothing on the web: no partial wallet + card split.
+  if (payFromWallet && currentProfile.wallet_balance < total) {
+    return NextResponse.json(
+      {
+        error: `Your wallet has ${formatKobo(currentProfile.wallet_balance)}, this order is ${formatKobo(total)}. Top up to pay from your wallet.`,
+        code: "INSUFFICIENT_WALLET",
+        shortfall: total - currentProfile.wallet_balance,
+      },
+      { status: 402 },
+    );
+  }
 
   let order;
   try {
@@ -88,8 +113,13 @@ export async function POST(request: Request) {
       channel: "web",
       sourceQr: body.sourceQr ?? currentProfile.acquired_via_qr,
       txRef,
+      walletAmount: payFromWallet ? total : 0,
     });
   } catch (err) {
+    if (err instanceof InsufficientWalletError) {
+      // Balance moved between the check above and the atomic debit (e.g. a second tab).
+      return NextResponse.json({ error: "Your wallet balance changed. Top up to pay from your wallet.", code: "INSUFFICIENT_WALLET" }, { status: 402 });
+    }
     if (err instanceof OutOfStockError) {
       const outOfStockItem = menuById.get(err.menuItemId);
       return NextResponse.json({ error: `${outOfStockItem?.name ?? "One item"} just sold out.` }, { status: 409 });
@@ -98,6 +128,12 @@ export async function POST(request: Request) {
   }
 
   revalidatePath("/"); // stock just changed — don't wait for the ISR window to catch up
+
+  if (payFromWallet) {
+    await payOrderFullyFromWallet(service, order.id);
+    revalidatePath("/account");
+    return NextResponse.json({ orderId: order.id, paid: true });
+  }
 
   const baseUrl = process.env.NEXT_PUBLIC_WEB_BASE_URL ?? new URL(request.url).origin;
   const { paymentLink } = await initiateFlutterwavePayment({

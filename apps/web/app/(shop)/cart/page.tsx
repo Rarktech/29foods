@@ -10,12 +10,12 @@ export default async function CartPage() {
   } = await supabase.auth.getSession();
   const user = session?.user ?? null;
 
-  let profile: { id: string; phone: string | null } | null = null;
+  let profile: { id: string; phone: string | null; wallet_balance: number } | null = null;
   let savedLocations: { id: string; label: string; lodge: string; room: string | null; note: string | null }[] = [];
 
   if (user) {
     const [{ data: profileRow }, { data: locations }] = await Promise.all([
-      supabase.from("users").select("id, phone").eq("auth_uid", user.id).maybeSingle(),
+      supabase.from("users").select("id, phone, wallet_balance").eq("auth_uid", user.id).maybeSingle(),
       supabase
         .from("saved_locations")
         .select("id, label, lodge, room, note")
@@ -31,6 +31,7 @@ export default async function CartPage() {
       isLoggedIn={!!user}
       userId={profile?.id ?? null}
       userPhone={profile?.phone ?? null}
+      walletBalance={profile?.wallet_balance ?? 0}
       initialSavedLocations={savedLocations}
     />
   );

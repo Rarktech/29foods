@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BottomNav } from "@/components/shop/BottomNav";
+import { formatKobo } from "@/lib/format";
+import { WalletFundSheet, useTopupReturn } from "@/components/WalletFundSheet";
 
 interface SavedLocation {
   id: string;
@@ -31,6 +33,7 @@ export function AccountView({
   email,
   locations,
   activeSubscription,
+  walletBalance,
   updateProfileAction,
 }: {
   name: string;
@@ -39,10 +42,13 @@ export function AccountView({
   email: string | null;
   locations: SavedLocation[];
   activeSubscription: ActiveSubscription | null;
+  walletBalance: number;
   updateProfileAction: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [fundSheetOpen, setFundSheetOpen] = useState(false);
+  const wallet = useTopupReturn(walletBalance);
   const initial = (name || email || "?").trim().charAt(0).toUpperCase();
 
   async function logout() {
@@ -129,6 +135,38 @@ export function AccountView({
         </div>
 
         <div className="px-5">
+          {/* Wallet */}
+          <div className="mb-5 rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-tint">
+                <WalletIcon />
+              </div>
+              <div className="flex-grow">
+                <div className="text-[10.5px] font-bold uppercase tracking-[0.05em] text-muted">Wallet balance</div>
+                <div className="text-[22px] font-extrabold leading-tight tabular-nums text-heading">{formatKobo(wallet.balance)}</div>
+              </div>
+              <button onClick={() => setFundSheetOpen(true)} className="shrink-0 rounded-full bg-accent px-4 py-2 text-[12.5px] font-bold text-white">
+                + Fund
+              </button>
+            </div>
+            {wallet.state === "confirming" && (
+              <p className="mt-3 border-t border-border pt-3 text-[11.5px] font-semibold text-muted">Confirming your top-up… this usually takes a few seconds.</p>
+            )}
+            {wallet.state === "credited" && wallet.creditedAmount !== null && (
+              <p className="mt-3 border-t border-border pt-3 text-[11.5px] font-bold text-success">{formatKobo(wallet.creditedAmount)} added to your wallet 🎉</p>
+            )}
+            {wallet.state === "slow" && (
+              <p className="mt-3 border-t border-border pt-3 text-[11.5px] font-semibold text-muted">
+                Still waiting on the payment provider. Your balance will update as soon as it confirms.
+              </p>
+            )}
+            {wallet.state === "idle" && wallet.balance === 0 && (
+              <p className="mt-3 border-t border-border pt-3 text-[11.5px] leading-[1.5] text-muted">
+                Fund it once, then pay for orders in one tap, with no checkout page each time.
+              </p>
+            )}
+          </div>
+
           {activeSubscription && (
             <Link
               href={`/plans/confirmed/${activeSubscription.id}`}
@@ -192,7 +230,7 @@ export function AccountView({
           </div>
           <div className="mb-[22px] flex items-center gap-3 rounded-[14px] border border-border bg-card px-3.5 py-3">
             <div className="flex h-[22px] w-8 shrink-0 items-center justify-center rounded-[5px] bg-heading text-[9px] font-extrabold text-[#FFB25C]">PAY</div>
-            <span className="flex-grow text-[13px] font-bold text-heading">Card or bank transfer, via Flutterwave</span>
+            <span className="flex-grow text-[13px] font-bold text-heading">Wallet, or card/bank transfer via Flutterwave</span>
           </div>
 
           <h3 className="mb-2.5 text-[14.5px] font-bold text-heading">Settings</h3>
@@ -217,7 +255,18 @@ export function AccountView({
       </div>
 
       <BottomNav />
+      <WalletFundSheet open={fundSheetOpen} onClose={() => setFundSheetOpen(false)} returnTo="/account" />
     </>
+  );
+}
+
+function WalletIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--color-accent))" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" />
+      <path d="M4 6v12a2 2 0 0 0 2 2h14v-4" />
+      <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+    </svg>
   );
 }
 
