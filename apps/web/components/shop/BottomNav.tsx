@@ -82,6 +82,7 @@ export function BottomNav() {
           <Link
             key={item.href}
             href={item.href}
+            data-tour={`nav-${item.label.toLowerCase()}`}
             style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, position: "relative" }}
           >
             {item.icon(color)}

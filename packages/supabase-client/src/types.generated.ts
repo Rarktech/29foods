@@ -51,7 +51,7 @@ export interface Database {
           favourites: Json; loyalty_points: number; last_order_at: string | null; created_at: string;
           notification_prefs: NotificationPrefs;
           wallet_balance: number; broadcast_opt_out: boolean; dietary_note: string | null;
-          open_reminder_requested: boolean;
+          open_reminder_requested: boolean; onboarding: Record<string, string>;
         };
         Insert: {
           id?: string; auth_uid?: string | null; telegram_id?: number | null; phone?: string | null;
@@ -60,7 +60,7 @@ export interface Database {
           favourites?: Json; loyalty_points?: number; last_order_at?: string | null; created_at?: string;
           notification_prefs?: NotificationPrefs;
           wallet_balance?: number; broadcast_opt_out?: boolean; dietary_note?: string | null;
-          open_reminder_requested?: boolean;
+          open_reminder_requested?: boolean; onboarding?: Record<string, string>;
         };
         Update: Partial<Database["public"]["Tables"]["users"]["Insert"]>;
         Relationships: [

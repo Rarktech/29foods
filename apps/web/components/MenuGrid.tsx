@@ -32,11 +32,14 @@ export function MenuGrid({ items }: { items: MenuItemWithStock[] }) {
   const visible = category === "all" ? items : items.filter((i) => i.category === category);
   const bestsellerId = items.find((i) => i.name === BESTSELLER_NAME)?.id ?? items[0]?.id;
   const { baskets } = useCart();
+  // The product tour points at the "+" on the first dish that can actually be added.
+  const tourTargetId = visible.find((i) => i.isAvailable && i.stockCount > 0)?.id;
 
   return (
     <>
       {/* Sticky once there are several people, so who you're adding for is always on screen. */}
       <div
+        data-tour="ordering-for"
         className={`z-10 px-5 pb-3 pt-1 ${baskets.length >= 2 ? "sticky top-0" : ""}`}
         style={baskets.length >= 2 ? { background: "rgb(var(--color-bg) / 0.94)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" } : undefined}
       >
@@ -66,14 +69,14 @@ export function MenuGrid({ items }: { items: MenuItemWithStock[] }) {
 
       <div className="grid grid-cols-2 gap-3.5 px-5">
         {visible.map((item) => (
-          <MenuCard key={item.id} item={item} isBestseller={item.id === bestsellerId} />
+          <MenuCard key={item.id} item={item} isBestseller={item.id === bestsellerId} isTourTarget={item.id === tourTargetId} />
         ))}
       </div>
     </>
   );
 }
 
-function MenuCard({ item, isBestseller }: { item: MenuItemWithStock; isBestseller: boolean }) {
+function MenuCard({ item, isBestseller, isTourTarget }: { item: MenuItemWithStock; isBestseller: boolean; isTourTarget: boolean }) {
   const { addItem, removeFromBasket, qtyInBasket, activeBasketId } = useCart();
   const soldOut = !item.isAvailable || item.stockCount <= 0;
   // ✓ means "in the pack of whoever you're ordering for right now", not "anywhere in the cart".
@@ -182,6 +185,7 @@ function MenuCard({ item, isBestseller }: { item: MenuItemWithStock; isBestselle
                 }
               }}
               className="menu-card-plus"
+              data-tour={isTourTarget ? "menu-add" : undefined}
               style={{
                 width: 26,
                 height: 26,

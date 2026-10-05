@@ -15,7 +15,7 @@ export default async function AccountPage() {
   if (!user) redirect("/login?next=/account");
 
   const [{ data: profile }, { data: locations }, { data: subscription }] = await Promise.all([
-    supabase.from("users").select("name, phone, lodge, wallet_balance").eq("auth_uid", user.id).maybeSingle(),
+    supabase.from("users").select("name, phone, lodge, wallet_balance, onboarding").eq("auth_uid", user.id).maybeSingle(),
     supabase
       .from("saved_locations")
       .select("id, label, lodge, room")
@@ -39,6 +39,7 @@ export default async function AccountPage() {
       email={user.email ?? null}
       locations={locations ?? []}
       walletBalance={profile?.wallet_balance ?? 0}
+      walletTipSeen={!!profile?.onboarding?.youTip}
       activeSubscription={
         subscription && duration
           ? {

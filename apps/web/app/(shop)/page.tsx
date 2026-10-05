@@ -7,6 +7,8 @@ import { BottomNav } from "@/components/shop/BottomNav";
 import { ThemeToggle } from "@/components/shop/ThemeToggle";
 import { InstallPrompt } from "@/components/shop/InstallPrompt";
 import { UsualCard } from "@/components/UsualCard";
+import { TourLauncher, type TourStep } from "@/components/SpotlightTour";
+import { accountSeenFlag } from "@/lib/onboarding-keys";
 import { BESTSELLER_NAME } from "@/lib/menu-images";
 import Image from "next/image";
 import Link from "next/link";
@@ -18,11 +20,11 @@ import partyJollof from "@/public/images/menu/party-jollof.jpg";
 // correctness on the events that actually change stock — this window is just a safety net.
 export const revalidate = 20;
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ src?: string }> }) {
-  const { src } = await searchParams;
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ src?: string; tour?: string }> }) {
+  const { src, tour } = await searchParams;
   const supabase = createPublicClient();
 
-  const [{ data: items, error }, profile] = await Promise.all([
+  const [{ data: items, error }, { profile, onboarding }] = await Promise.all([
     supabase
       .from("menu_items")
       .select("id, name, category, price, is_available, image_url, inventory(stock_count)")
@@ -54,7 +56,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <Image src={logo} alt="29Foods logo" width={40} height={40} className="h-10 w-10 object-contain" />
           <div className="flex flex-col leading-[1.1]">
             <span className="text-[17px] font-extrabold text-heading">29Foods</span>
-            <span className="text-[11px] font-semibold tracking-[0.02em] text-accent">
+            <span data-tour="delivery-spot" className="text-[11px] font-semibold tracking-[0.02em] text-accent">
               {profile ? `${profile.lodge}${profile.room ? ` · Rm ${profile.room}` : ""}` : "Set your delivery spot"}
             </span>
           </div>
@@ -133,6 +135,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         {/* Spin & Win banner */}
         <Link
           href="/spin"
+          data-tour="spin"
           className="relative mx-5 mb-6 flex items-center gap-3 overflow-hidden rounded-2xl border border-transparent p-[14px] px-4 dark:border-border"
           style={{ background: "var(--spin-banner-bg)" }}
         >
@@ -172,11 +175,60 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       </div>
 
       <BottomNav />
+      <TourLauncher
+        tourKey="homeTour"
+        accountSeen={accountSeenFlag(onboarding, "homeTour", onboarding !== null)}
+        steps={HOME_TOUR}
+        force={tour === "1"}
+      />
     </>
   );
 }
 
-async function getViewerProfile(): Promise<{ id: string; lodge: string; room: string | null } | null> {
+/** First-visit walkthrough of Home and the bottom nav. Steps whose element isn't on screen are skipped. */
+const HOME_TOUR: TourStep[] = [
+  {
+    target: "delivery-spot",
+    title: "Your delivery spot",
+    body: "This is where your food goes. Set it once, and change it anytime at checkout.",
+  },
+  {
+    target: "menu-add",
+    title: "Add in one tap",
+    body: "Tap + to drop a dish in your cart. Tap the card itself to pick proteins and quantity.",
+  },
+  {
+    target: "ordering-for",
+    title: "Ordering for friends too?",
+    body: "Add a person and each gets their own named pack. One delivery, one bill.",
+  },
+  {
+    target: "spin",
+    title: "Spin & Win",
+    body: "One free spin a day for discounts, drinks or free delivery.",
+  },
+  {
+    target: "nav-orders",
+    title: "Track your order",
+    body: "Follow your food live here, from the kitchen to your door.",
+  },
+  {
+    target: "nav-cart",
+    title: "Your cart",
+    body: "Check out here. Pay by card or transfer, or straight from your wallet.",
+  },
+  {
+    target: "nav-you",
+    title: "You",
+    body: "Your wallet, saved spots and settings live here. You can replay this tour from Settings anytime.",
+  },
+];
+
+async function getViewerProfile(): Promise<{
+  profile: { id: string; lodge: string; room: string | null } | null;
+  /** The signed-in user's tour flags (users.onboarding), or null for a guest. */
+  onboarding: Record<string, string> | null;
+}> {
   const supabase = await getSupabaseServerClient();
   // getSession() reads the already-validated cookie locally (middleware just refreshed
   // it) instead of re-verifying with the Auth server — fine for display personalization;
@@ -185,9 +237,10 @@ async function getViewerProfile(): Promise<{ id: string; lodge: string; room: st
     data: { session },
   } = await supabase.auth.getSession();
   const user = session?.user ?? null;
-  if (!user) return null;
+  if (!user) return { profile: null, onboarding: null };
 
-  const { data } = await supabase.from("users").select("id, lodge, room").eq("auth_uid", user.id).maybeSingle();
-  if (!data || !data.lodge) return null;
-  return { id: data.id, lodge: data.lodge, room: data.room };
+  const { data } = await supabase.from("users").select("id, lodge, room, onboarding").eq("auth_uid", user.id).maybeSingle();
+  const onboarding = data?.onboarding ?? {};
+  if (!data || !data.lodge) return { profile: null, onboarding };
+  return { profile: { id: data.id, lodge: data.lodge, room: data.room }, onboarding };
 }

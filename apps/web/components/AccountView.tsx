@@ -7,6 +7,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { BottomNav } from "@/components/shop/BottomNav";
 import { formatKobo } from "@/lib/format";
 import { WalletFundSheet, useTopupReturn } from "@/components/WalletFundSheet";
+import { TourLauncher } from "@/components/SpotlightTour";
 
 interface SavedLocation {
   id: string;
@@ -34,6 +35,7 @@ export function AccountView({
   locations,
   activeSubscription,
   walletBalance,
+  walletTipSeen,
   updateProfileAction,
 }: {
   name: string;
@@ -43,6 +45,7 @@ export function AccountView({
   locations: SavedLocation[];
   activeSubscription: ActiveSubscription | null;
   walletBalance: number;
+  walletTipSeen: boolean;
   updateProfileAction: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
@@ -136,7 +139,7 @@ export function AccountView({
 
         <div className="px-5">
           {/* Wallet */}
-          <div className="mb-5 rounded-2xl border border-border bg-card p-4">
+          <div data-tour="wallet-card" className="mb-5 rounded-2xl border border-border bg-card p-4">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-tint">
                 <WalletIcon />
@@ -233,6 +236,9 @@ export function AccountView({
             <a href="mailto:help@29foods.app" className="block">
               <SettingsRow label="Help & support" icon={<HelpIcon />} bordered />
             </a>
+            <Link href="/?tour=1" className="block">
+              <SettingsRow label="Replay app tour" icon={<TourIcon />} bordered />
+            </Link>
             <SettingsRow label="Account settings" icon={<GearIcon />} last />
           </div>
 
@@ -248,7 +254,27 @@ export function AccountView({
 
       <BottomNav />
       <WalletFundSheet open={fundSheetOpen} onClose={() => setFundSheetOpen(false)} returnTo="/account" />
+      <TourLauncher
+        tourKey="youTip"
+        accountSeen={walletTipSeen}
+        steps={[
+          {
+            target: "wallet-card",
+            title: "Your wallet",
+            body: "Fund it once, and checkout is a single tap from then on. No card or transfer each time.",
+          },
+        ]}
+      />
     </>
+  );
+}
+
+function TourIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--color-body))" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+      <circle cx="12" cy="12" r="9" />
+      <path d="m15.5 8.5-2 5-5 2 2-5z" />
+    </svg>
   );
 }
 

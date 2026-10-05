@@ -12,6 +12,7 @@ import { getMenuImage } from "@/lib/menu-images";
 import { readStoredSourceQr } from "@/components/QrAttributionCapture";
 import { WalletFundSheet, CheckDot, useTopupReturn } from "@/components/WalletFundSheet";
 import { PersonNameSheet } from "@/components/OrderingForBar";
+import { TourLauncher } from "@/components/SpotlightTour";
 
 interface SavedLocation {
   id: string;
@@ -28,12 +29,15 @@ export function CartScreen({
   userId,
   userPhone,
   walletBalance,
+  cartTipSeen,
   initialSavedLocations,
 }: {
   isLoggedIn: boolean;
   userId: string | null;
   userPhone: string | null;
   walletBalance: number;
+  /** Whether the one-time "pay from your wallet" tip has been seen (null for guests). */
+  cartTipSeen: boolean | null;
   initialSavedLocations: SavedLocation[];
 }) {
   const router = useRouter();
@@ -534,7 +538,7 @@ export function CartScreen({
 
           {/* Payment */}
           <h3 className="mb-2.5 text-[14.5px] font-bold text-heading">Pay with</h3>
-          <div className="mb-2 flex flex-col gap-2.5">
+          <div data-tour="pay-with" className="mb-2 flex flex-col gap-2.5">
             {isLoggedIn && (
               <PayOption
                 active={payMethod === "wallet"}
@@ -633,6 +637,20 @@ export function CartScreen({
       </div>
 
       <PersonNameSheet open={personSheetOpen} onClose={() => setPersonSheetOpen(false)} onSave={(name) => addBasket(name)} />
+
+      {/* One-time tip; the wallet option only exists for signed-in users. */}
+      <TourLauncher
+        tourKey="cartTip"
+        accountSeen={cartTipSeen}
+        enabled={isLoggedIn}
+        steps={[
+          {
+            target: "pay-with",
+            title: "Pay in one tap",
+            body: "Pay straight from your wallet, with no checkout page. If it's short, you can top up right here.",
+          },
+        ]}
+      />
 
       <WalletFundSheet
         open={fundSheetOpen}
